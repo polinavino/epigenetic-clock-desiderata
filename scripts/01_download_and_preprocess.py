@@ -59,6 +59,8 @@ DATASETS = {
         ),
         "matrix_dest": "data/raw/GSE40279_series_matrix.txt.gz",
         "beta_dest":   "data/raw/GSE40279_beta.txt.gz",
+        "beta_dest2":  None,
+        "beta_url2":   None,
     },
     "GSE87571": {
         "matrix_url": (
@@ -67,10 +69,15 @@ DATASETS = {
         ),
         "beta_url": (
             "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE87nnn/GSE87571/suppl/"
-            "GSE87571_betaValues.txt.gz"
+            "GSE87571_matrix1of2.txt.gz"
+        ),
+        "beta_url2": (
+            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE87nnn/GSE87571/suppl/"
+            "GSE87571_matrix2of2.txt.gz"
         ),
         "matrix_dest": "data/raw/GSE87571_series_matrix.txt.gz",
-        "beta_dest":   "data/raw/GSE87571_beta.txt.gz",
+        "beta_dest":   "data/raw/GSE87571_beta_1of2.txt.gz",
+        "beta_dest2":  "data/raw/GSE87571_beta_2of2.txt.gz",
     },
 }
 
@@ -82,6 +89,8 @@ for gse_id, info in DATASETS.items():
     print(f"\n{gse_id}:")
     download_file(info["matrix_url"], info["matrix_dest"])
     download_file(info["beta_url"],   info["beta_dest"])
+    if info["beta_url2"]:
+        download_file(info["beta_url2"], info["beta_dest2"])
 
 
 # ── Step 2: Parse metadata ────────────────────────────────────────────────────
@@ -93,57 +102,79 @@ def parse_geo_metadata(matrix_gz_path, gse_id):
     """
     Extract sample IDs, age, and sex from a GEO series matrix file.
     Returns a DataFrame with columns: sample_id, age, sex, dataset.
-    
-    GEO format note: characteristics lines look like:
-      !Sample_characteristics_ch1    "age: 45"    "age: 67"  ...
-    We parse these by splitting on tab and stripping quotes.
-    """
-    samples, ages, sexes = [], [], []
-    age_line, sex_line, id_line = None, None, None
 
+    ID strategy per dataset:
+    - GSE40279: beta matrix columns are internal IDs like X1001, X1002.
+      These match !Sample_source_name_ch1 in the series matrix.
+    - GSE87571: beta matrix columns are positional (X1, X1.1, X10 ...).
+      The series matrix samples are in the same order as the beta matrix
+      columns when sorted numerically by their title prefix (X1, X2, ...).
+      We use positional alignment: metadata row i -> beta column i.
+    """
+    lines = {}
     with gzip.open(matrix_gz_path, "rt", encoding="utf-8", errors="replace") as f:
         for line in f:
-            if line.startswith("!Sample_geo_accession"):
-                id_line = line.strip().split("\t")
-            # Age and sex are in characteristics lines; their order varies
-            # by dataset so we detect by content
-            elif line.startswith("!Sample_characteristics_ch1"):
-                if "age" in line.lower() and age_line is None:
-                    age_line = line.strip().split("\t")
-                elif "sex" in line.lower() or "gender" in line.lower():
-                    sex_line = line.strip().split("\t")
-            # Some datasets put age on ch2
-            elif line.startswith("!Sample_characteristics_ch2"):
-                if "age" in line.lower() and age_line is None:
-                    age_line = line.strip().split("\t")
+            for key in ["!Sample_geo_accession", "!Sample_source_name_ch1",
+                        "!Sample_title", "!Sample_characteristics_ch1",
+                        "!Sample_characteristics_ch2"]:
+                if line.startswith(key):
+                    lines.setdefault(key, []).append(line.strip().split("\t"))
 
-    if id_line is None:
-        raise ValueError(f"Could not find sample IDs in {matrix_gz_path}")
+    def clean(tokens):
+        return [t.strip().strip('"') for t in tokens[1:]]
 
-    # First token is the field label; rest are per-sample values
-    sample_ids = [v.strip('"') for v in id_line[1:]]
+    gsm_ids   = clean(lines["!Sample_geo_accession"][0])
+    n_samples = len(gsm_ids)
 
-    def extract_values(line_tokens, key):
-        """Extract numeric or string value after 'key:' in each token."""
+    # --- Determine beta matrix column IDs ---
+    if gse_id == "GSE40279":
+        # source_name matches beta matrix column names exactly
+        source_names = clean(lines["!Sample_source_name_ch1"][0])
+        sample_ids = source_names
+    elif gse_id == "GSE87571":
+        # Beta matrix columns are X1, X1.1, X2, X2.1 ... (R duplicate handling)
+        # Series matrix rows are in order X1, X2, X3 ...
+        # We assign positional IDs that match the sorted beta columns later.
+        # For now, use GSM accessions and align by position in Step 6.
+        sample_ids = gsm_ids
+    else:
+        sample_ids = gsm_ids
+
+    # --- Extract age ---
+    age_line = None
+    for tokens in lines.get("!Sample_characteristics_ch1", []):
+        joined = " ".join(tokens).lower()
+        if "age" in joined and age_line is None:
+            age_line = tokens
+    if age_line is None:
+        for tokens in lines.get("!Sample_characteristics_ch2", []):
+            if "age" in " ".join(tokens).lower():
+                age_line = tokens
+                break
+
+    # --- Extract sex ---
+    sex_line = None
+    for tokens in lines.get("!Sample_characteristics_ch1", []):
+        joined = " ".join(tokens).lower()
+        if "sex" in joined or "gender" in joined:
+            sex_line = tokens
+            break
+
+    def extract_values(line_tokens):
         results = []
         for token in line_tokens[1:]:
             token = token.strip().strip('"')
-            if ":" in token:
-                val = token.split(":", 1)[1].strip()
-            else:
-                val = token
+            val = token.split(":", 1)[1].strip() if ":" in token else token
             results.append(val)
         return results
 
-    ages_raw = extract_values(age_line, "age") if age_line else ["NA"] * len(sample_ids)
-    sexes_raw = extract_values(sex_line, "sex") if sex_line else ["NA"] * len(sample_ids)
-
-    # Convert ages to numeric, coerce failures to NaN
-    ages_numeric = pd.to_numeric(ages_raw, errors="coerce")
+    ages_raw  = extract_values(age_line)  if age_line  else ["NA"] * n_samples
+    sexes_raw = extract_values(sex_line)  if sex_line  else ["NA"] * n_samples
 
     df = pd.DataFrame({
         "sample_id": sample_ids,
-        "age":       ages_numeric,
+        "gsm_id":    gsm_ids,
+        "age":       pd.to_numeric(ages_raw, errors="coerce"),
         "sex":       sexes_raw,
         "dataset":   gse_id,
     })
@@ -189,7 +220,34 @@ def load_beta_matrix(beta_gz_path, gse_id):
 print("\n=== Step 3: Loading beta matrices ===")
 beta_frames = {}
 for gse_id, info in DATASETS.items():
-    beta_frames[gse_id] = load_beta_matrix(info["beta_dest"], gse_id)
+    print(f"  Loading {gse_id} beta matrix...")
+    df1 = pd.read_csv(
+        info["beta_dest"], sep="\t", index_col=0,
+        compression="gzip", low_memory=False,
+    )
+    print(f"    Part 1 shape: {df1.shape[0]} CpGs x {df1.shape[1]} samples")
+    if info["beta_dest2"]:
+        df2 = pd.read_csv(
+            info["beta_dest2"], sep="\t", index_col=0,
+            compression="gzip", low_memory=False,
+        )
+        print(f"    Part 2 shape: {df2.shape[0]} CpGs x {df2.shape[1]} samples")
+        df = pd.concat([df1, df2], axis=1)
+        print(f"    Combined: {df.shape[0]} CpGs x {df.shape[1]} samples")
+        # GSE87571 has paired columns: X1/X1.1, X2/X2.1 etc.
+        # X1 and X1.1 are two timepoints for the same individual.
+        # For cross-sectional analysis we keep only non-.1 columns (timepoint 1).
+        # Timepoint 2 (.1 columns) are saved separately for longitudinal analysis.
+        dot1_cols   = [c for c in df.columns if c.endswith(".1")]
+        non_dot1    = [c for c in df.columns if not c.endswith(".1")]
+        df_t2       = df[dot1_cols]
+        df          = df[non_dot1]
+        print(f"    Timepoint 1 (cross-sectional): {df.shape[1]} samples")
+        print(f"    Timepoint 2 (longitudinal):    {df_t2.shape[1]} samples")
+        beta_frames[gse_id + "_t2"] = df_t2
+    else:
+        df = df1
+    beta_frames[gse_id] = df
 
 
 # ── Step 4: Quality control ───────────────────────────────────────────────────
@@ -323,23 +381,45 @@ qc_log.append(
 # any samples present in one but not the other.
 
 print("\n=== Step 6: Aligning metadata ===")
+import re
 
-beta_sample_ids = set(beta_combined.columns)
-meta_sample_ids = set(metadata["sample_id"])
+# GSE40279: sample_id in metadata == beta matrix column name (X1001, X1002...)
+meta_40279 = metadata[metadata["dataset"] == "GSE40279"].copy()
+valid_40279 = set(meta_40279["sample_id"]) & set(beta_combined.columns)
+beta_40279_cols = [c for c in beta_combined.columns if c in valid_40279]
+meta_40279 = meta_40279.set_index("sample_id").loc[beta_40279_cols].reset_index()
+print(f"  GSE40279: {len(meta_40279)} samples matched by ID")
 
-in_beta_not_meta = beta_sample_ids - meta_sample_ids
-in_meta_not_beta = meta_sample_ids - beta_sample_ids
+# GSE87571: positional alignment
+# Beta matrix columns are X1, X2, X3... (non-.1 only, timepoint 1)
+# Series matrix rows are in the same order.
+# Sort columns numerically and align positionally.
+meta_87571 = metadata[metadata["dataset"] == "GSE87571"].copy().reset_index(drop=True)
+gse40279_id_set = set(meta_40279["sample_id"])
+beta_cols_87571 = [c for c in beta_combined.columns if c not in gse40279_id_set]
 
-print(f"  Samples in beta matrix but missing metadata: {len(in_beta_not_meta)}")
-print(f"  Samples in metadata but missing beta data:   {len(in_meta_not_beta)}")
+def col_sort_key(c):
+    m = re.match(r"X(\d+)$", c)
+    return int(m.group(1)) if m else 0
 
-# Keep only samples present in both
-keep_samples = sorted(beta_sample_ids & meta_sample_ids)
-beta_combined = beta_combined[keep_samples]
-metadata_aligned = metadata[metadata["sample_id"].isin(keep_samples)].copy()
-metadata_aligned = metadata_aligned.set_index("sample_id").loc[keep_samples].reset_index()
+beta_cols_87571_sorted = sorted(beta_cols_87571, key=col_sort_key)
+print(f"  GSE87571: {len(beta_cols_87571_sorted)} beta columns, "
+      f"{len(meta_87571)} metadata rows")
 
-# Drop samples with missing age (age is required for all downstream analyses)
+n = min(len(beta_cols_87571_sorted), len(meta_87571))
+if len(beta_cols_87571_sorted) != len(meta_87571):
+    print(f"  GSE87571: WARNING — count mismatch, keeping {n}")
+else:
+    print(f"  GSE87571: positional alignment successful")
+
+beta_cols_87571_sorted = beta_cols_87571_sorted[:n]
+meta_87571 = meta_87571.iloc[:n].copy()
+meta_87571["sample_id"] = beta_cols_87571_sorted
+
+# Combine
+metadata_aligned = pd.concat([meta_40279, meta_87571], ignore_index=True)
+
+# Drop samples with missing age
 n_before = len(metadata_aligned)
 metadata_aligned = metadata_aligned.dropna(subset=["age"])
 n_after = len(metadata_aligned)
@@ -348,20 +428,31 @@ print(f"  Final sample count: {n_after}")
 print(f"  Age range: {metadata_aligned['age'].min():.0f}–{metadata_aligned['age'].max():.0f}")
 print(f"  Age mean ± std: {metadata_aligned['age'].mean():.1f} ± {metadata_aligned['age'].std():.1f}")
 
-# Align beta matrix to kept samples
+# Align beta matrix to final sample list
 final_samples = metadata_aligned["sample_id"].tolist()
 beta_final = beta_combined[final_samples]
 
+# Transpose to samples x CpGs for NaN check
+beta_final_T = beta_final.T
 
-# ── Step 7: Transpose and save ────────────────────────────────────────────────
-# Convention for downstream scripts: rows=samples, columns=CpGs.
-# This is the standard orientation for statistical modelling
-# (each row is an observation, each column is a feature).
+# Drop CpGs with any NaN across samples
+# These arise from probes present in one dataset but not the other
+# despite passing the "common CpGs" filter — can happen due to
+# per-sample missingness patterns
+n_cpgs_before = beta_final_T.shape[1]
+beta_final_T = beta_final_T.dropna(axis=1)
+n_cpgs_after = beta_final_T.shape[1]
+print(f"  Dropped {n_cpgs_before - n_cpgs_after} CpGs with any NaN "
+      f"({100*(n_cpgs_before-n_cpgs_after)/n_cpgs_before:.1f}%)")
+print(f"  Final CpG count: {n_cpgs_after}")
+
+# Transpose back to CpGs x samples for saving
+beta_final = beta_final_T.T
 
 print("\n=== Step 7: Saving outputs ===")
 
-# Transpose: now shape is (n_samples x n_CpGs)
-beta_T = beta_final.T
+# beta_final_T is already samples x CpGs from Step 6
+beta_T = beta_final_T
 beta_T.index.name = "sample_id"
 
 print(f"  Beta matrix shape: {beta_T.shape} (samples x CpGs)")
