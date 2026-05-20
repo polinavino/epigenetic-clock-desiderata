@@ -18,15 +18,21 @@ Biology notes (for reader unfamiliar with methylation arrays):
 """
 
 import os
+import sys
 import gzip
 import urllib.request
 import pandas as pd
 import numpy as np
+from pathlib import Path
+
+# Add scripts dir to path for config import
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config import DATASETS, DATA_DIR, RAW_DIR, BETA_MATRIX, BETA_MATRIX_CSV, METADATA, QC_REPORT, BETA_T2
 
 # ── Directory setup ───────────────────────────────────────────────────────────
 
-os.makedirs("data/raw", exist_ok=True)
-os.makedirs("data", exist_ok=True)
+DATA_DIR.mkdir(exist_ok=True)
+RAW_DIR.mkdir(exist_ok=True)
 
 # ── Download helpers ──────────────────────────────────────────────────────────
 
@@ -345,58 +351,50 @@ for gse_id in DATASETS:
     print(log)
 
 
-# ── Step 5: Find common CpGs and combine ──────────────────────────────────────
-# The two datasets were run on the same Illumina 450k platform, so they
-# share most probes. We take the intersection to ensure both datasets
-# cover exactly the same CpG sites.
+# ── Step 5: Save each dataset separately as parquet ──────────────────────────
+# We do NOT combine the full matrices in memory — too large (~8GB).
+# Instead we save each QC'd dataset as its own parquet file.
+# Script 2 will load only the clock CpG subset for analysis.
 
-print("\n=== Step 5: Finding common CpGs and combining ===")
+print("\n=== Step 5: Saving QC'd datasets as parquet ===")
 
-cpgs_gse40279 = set(beta_qc["GSE40279"].index)
-cpgs_gse87571 = set(beta_qc["GSE87571"].index)
-common_cpgs = sorted(cpgs_gse40279 & cpgs_gse87571)
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config import DATA_DIR
 
-print(f"  GSE40279: {len(cpgs_gse40279)} probes after QC")
-print(f"  GSE87571: {len(cpgs_gse87571)} probes after QC")
-print(f"  Common:   {len(common_cpgs)} probes")
+for gse_id in beta_qc:
+    out_path = DATA_DIR / f"{gse_id}_beta.parquet"
+    print(f"  Saving {gse_id}: {beta_qc[gse_id].shape} (CpGs x samples)...")
+    # Transpose to samples x CpGs before saving
+    beta_qc[gse_id].T.to_parquet(out_path)
+    print(f"  Saved: {out_path}")
 
-# Restrict both to common CpGs
-b40 = beta_qc["GSE40279"].loc[common_cpgs]
-b87 = beta_qc["GSE87571"].loc[common_cpgs]
+# Find common CpGs (just the list, no large matrix)
+cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
+common_cpgs = sorted(set.intersection(*cpgs_sets.values()))
+print(f"\n  Common CpGs across all datasets: {len(common_cpgs)}")
 
-# Concatenate column-wise (samples from both datasets)
-beta_combined = pd.concat([b40, b87], axis=1)
-print(f"  Combined beta matrix: {beta_combined.shape[0]} CpGs x {beta_combined.shape[1]} samples")
+# Save common CpG list
+common_cpg_path = DATA_DIR / "common_cpgs.txt"
+with open(common_cpg_path, "w") as f:
+    f.write("\n".join(common_cpgs))
+print(f"  Saved: {common_cpg_path}")
 
-qc_log.append(
-    f"\n=== Combined dataset ===\n"
-    f"Common CpGs: {len(common_cpgs)}\n"
-    f"Total samples: {beta_combined.shape[1]}"
-)
-
-
-# ── Step 6: Align metadata to beta matrix ────────────────────────────────────
-# The beta matrix columns are sample IDs (GSM accessions).
-# We align the metadata DataFrame to match this order and check for
-# any samples present in one but not the other.
-
+# ── Step 6: Align metadata ────────────────────────────────────────────────────
 print("\n=== Step 6: Aligning metadata ===")
 import re
 
 # GSE40279: sample_id in metadata == beta matrix column name (X1001, X1002...)
 meta_40279 = metadata[metadata["dataset"] == "GSE40279"].copy()
-valid_40279 = set(meta_40279["sample_id"]) & set(beta_combined.columns)
-beta_40279_cols = [c for c in beta_combined.columns if c in valid_40279]
+valid_40279 = set(meta_40279["sample_id"]) & set(beta_qc["GSE40279"].columns)
+beta_40279_cols = [c for c in beta_qc["GSE40279"].columns if c in valid_40279]
 meta_40279 = meta_40279.set_index("sample_id").loc[beta_40279_cols].reset_index()
 print(f"  GSE40279: {len(meta_40279)} samples matched by ID")
 
 # GSE87571: positional alignment
-# Beta matrix columns are X1, X2, X3... (non-.1 only, timepoint 1)
-# Series matrix rows are in the same order.
-# Sort columns numerically and align positionally.
 meta_87571 = metadata[metadata["dataset"] == "GSE87571"].copy().reset_index(drop=True)
 gse40279_id_set = set(meta_40279["sample_id"])
-beta_cols_87571 = [c for c in beta_combined.columns if c not in gse40279_id_set]
+beta_cols_87571 = [c for c in beta_qc["GSE87571"].columns]
 
 def col_sort_key(c):
     m = re.match(r"X(\d+)$", c)
@@ -416,10 +414,8 @@ beta_cols_87571_sorted = beta_cols_87571_sorted[:n]
 meta_87571 = meta_87571.iloc[:n].copy()
 meta_87571["sample_id"] = beta_cols_87571_sorted
 
-# Combine
+# Combine metadata
 metadata_aligned = pd.concat([meta_40279, meta_87571], ignore_index=True)
-
-# Drop samples with missing age
 n_before = len(metadata_aligned)
 metadata_aligned = metadata_aligned.dropna(subset=["age"])
 n_after = len(metadata_aligned)
@@ -428,85 +424,35 @@ print(f"  Final sample count: {n_after}")
 print(f"  Age range: {metadata_aligned['age'].min():.0f}–{metadata_aligned['age'].max():.0f}")
 print(f"  Age mean ± std: {metadata_aligned['age'].mean():.1f} ± {metadata_aligned['age'].std():.1f}")
 
-# Align beta matrix to final sample list
-final_samples = metadata_aligned["sample_id"].tolist()
-beta_final = beta_combined[final_samples]
-
-# Transpose to samples x CpGs for NaN check
-beta_final_T = beta_final.T
-
-# Drop CpGs with any NaN across samples
-# These arise from probes present in one dataset but not the other
-# despite passing the "common CpGs" filter — can happen due to
-# per-sample missingness patterns
-n_cpgs_before = beta_final_T.shape[1]
-beta_final_T = beta_final_T.dropna(axis=1)
-n_cpgs_after = beta_final_T.shape[1]
-print(f"  Dropped {n_cpgs_before - n_cpgs_after} CpGs with any NaN "
-      f"({100*(n_cpgs_before-n_cpgs_after)/n_cpgs_before:.1f}%)")
-print(f"  Final CpG count: {n_cpgs_after}")
-
-# Transpose back to CpGs x samples for saving
-beta_final = beta_final_T.T
-
+# ── Step 7: Save metadata ─────────────────────────────────────────────────────
 print("\n=== Step 7: Saving outputs ===")
+metadata_aligned.to_csv(METADATA, index=False)
+print(f"  Saved: {METADATA}")
 
-# beta_final_T is already samples x CpGs from Step 6
-beta_T = beta_final_T
-beta_T.index.name = "sample_id"
-
-print(f"  Beta matrix shape: {beta_T.shape} (samples x CpGs)")
-beta_T.to_csv("data/beta_matrix.csv")
-print("  Saved: data/beta_matrix.csv")
-
-metadata_aligned.to_csv("data/sample_metadata.csv", index=False)
-print("  Saved: data/sample_metadata.csv")
-
-with open("data/qc_report.txt", "w") as f:
+with open(QC_REPORT, "w") as f:
     f.write("\n".join(qc_log))
-print("  Saved: data/qc_report.txt")
-
+print(f"  Saved: {QC_REPORT}")
 
 # ── Step 8: Sanity checks ─────────────────────────────────────────────────────
-# Verify the output makes sense before proceeding to analysis.
-
 print("\n=== Step 8: Sanity checks ===")
 
-# Check beta values are in expected range
-beta_min = beta_T.values.min()
-beta_max = beta_T.values.max()
-print(f"  Beta value range: [{beta_min:.4f}, {beta_max:.4f}]  (expected: [0.001, 0.999])")
-assert 0.0 <= beta_min and beta_max <= 1.0, "Beta values out of range!"
-
-# Check no remaining NaNs
-n_nan = beta_T.isna().sum().sum()
-print(f"  Remaining NaN values: {n_nan}  (expected: 0)")
-
-# Check age distribution looks reasonable
-print(f"\n  Age distribution by dataset:")
-for ds in ["GSE40279", "GSE87571"]:
-    sub = metadata_aligned[metadata_aligned["dataset"] == ds]
-    print(f"    {ds}: n={len(sub)}, "
-          f"age {sub['age'].min():.0f}–{sub['age'].max():.0f}, "
-          f"mean {sub['age'].mean():.1f}")
-
-# Quick correlation check: pick one known age-associated CpG
-# cg16867657 is in ELOVL2, one of the most consistently age-associated sites
-# reported across dozens of studies. Its beta value should correlate strongly
-# with age (r > 0.8 in healthy blood).
-if "cg16867657" in beta_T.columns:
+# Check ELOVL2 correlation with age using GSE40279 only (fast)
+elovl2 = "cg16867657"
+if elovl2 in beta_qc["GSE40279"].index:
     from scipy.stats import pearsonr
-    r, p = pearsonr(
-        beta_T["cg16867657"].values,
-        metadata_aligned["age"].values
-    )
-    print(f"\n  Sanity check — cg16867657 (ELOVL2) correlation with age: r={r:.3f}, p={p:.2e}")
-    print(f"  Expected: r > 0.8. {'PASS' if abs(r) > 0.7 else 'WARNING: lower than expected'}")
+    # Get GSE40279 samples with valid age
+    meta_40 = metadata_aligned[metadata_aligned["dataset"] == "GSE40279"]
+    valid_ids = [s for s in meta_40["sample_id"] if s in beta_qc["GSE40279"].columns]
+    ages_40 = meta_40.set_index("sample_id").loc[valid_ids, "age"].values
+    betas_40 = beta_qc["GSE40279"].loc[elovl2, valid_ids].values.astype(float)
+    r, p = pearsonr(betas_40, ages_40)
+    print(f"  ELOVL2 (GSE40279) r={r:.3f}, p={p:.2e}")
+    print(f"  {'PASS' if abs(r) > 0.7 else 'WARNING: lower than expected'}")
 else:
-    print("\n  WARNING: cg16867657 not found in common CpG set — check probe naming")
+    print("  cg16867657 not found in GSE40279")
 
-print("\n=== Preprocessing complete ===")
-print(f"Output files in data/:")
-print(f"  beta_matrix.csv      — {beta_T.shape[0]} samples x {beta_T.shape[1]} CpGs")
-print(f"  sample_metadata.csv  — age, sex, dataset for each sample")
-print(f"  qc_report.txt        — QC summary")
+print(f"\n  Age distribution:")
+for ds in metadata_aligned["dataset"].unique():
+    sub = metadata_aligned[metadata_aligned["dataset"] == ds]
+    print(f"    {ds}: n={len(sub)}, age {sub['age'].min():.0f}–{sub['age'].max():.0f}, mean {sub['age'].mean():.1f}")
+
