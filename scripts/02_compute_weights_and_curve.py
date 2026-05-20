@@ -79,14 +79,14 @@ print(f"  Samples: {len(metadata)}")
 print("\n=== Step 2: Loading beta matrices (common CpGs only) ===")
 
 print("  Loading GSE40279...")
-beta_40 = pd.read_parquet(GSE40279_BETA)   # samples x CpGs
+beta_40 = pd.read_hdf(str(GSE40279_BETA), key="beta").T   # CpGs x samples -> samples x CpGs
 # Restrict to common CpGs that are present in this dataset
 cpgs_40 = [c for c in common_cpgs if c in beta_40.columns]
 beta_40 = beta_40[cpgs_40].astype(np.float32)
 print(f"    Shape: {beta_40.shape}")
 
 print("  Loading GSE87571...")
-beta_87 = pd.read_parquet(GSE87571_BETA)   # samples x CpGs
+beta_87 = pd.read_hdf(str(GSE87571_BETA), key="beta").T   # CpGs x samples -> samples x CpGs
 cpgs_87 = [c for c in common_cpgs if c in beta_87.columns]
 beta_87 = beta_87[cpgs_87].astype(np.float32)
 print(f"    Shape: {beta_87.shape}")
