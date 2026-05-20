@@ -358,6 +358,31 @@ for gse_id in DATASETS:
 
 print("\n=== Step 5: Saving QC'd datasets as parquet ===")
 
+# Skip if both parquet files already exist and are readable
+import pyarrow.parquet as pq
+def parquet_valid(path):
+    try:
+        pq.read_schema(str(path))
+        return True
+    except Exception:
+        return False
+
+gse40279_ok = parquet_valid(DATA_DIR / "GSE40279_beta.parquet")
+gse87571_ok = parquet_valid(DATA_DIR / "GSE87571_beta.parquet")
+common_ok   = (DATA_DIR / "common_cpgs.txt").exists()
+
+if gse40279_ok and gse87571_ok and common_ok:
+    print("  Parquet files already exist and are valid -- skipping save.")
+    print("  Delete data/GSE40279_beta.parquet and data/GSE87571_beta.parquet to force rerun.")
+    # Still need common_cpgs for downstream
+    cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
+    common_cpgs = sorted(set.intersection(*cpgs_sets.values()))
+else:
+    if not gse40279_ok:
+        print("  GSE40279 parquet missing or corrupt -- regenerating.")
+    if not gse87571_ok:
+        print("  GSE87571 parquet missing or corrupt -- regenerating.")
+
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import DATA_DIR
@@ -365,20 +390,19 @@ from config import DATA_DIR
 for gse_id in beta_qc:
     out_path = DATA_DIR / f"{gse_id}_beta.parquet"
     print(f"  Saving {gse_id}: {beta_qc[gse_id].shape} (CpGs x samples)...")
-    # Transpose to samples x CpGs before saving
     beta_qc[gse_id].T.to_parquet(out_path)
     print(f"  Saved: {out_path}")
 
-# Find common CpGs (just the list, no large matrix)
-cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
-common_cpgs = sorted(set.intersection(*cpgs_sets.values()))
-print(f"\n  Common CpGs across all datasets: {len(common_cpgs)}")
+    # Find common CpGs (just the list, no large matrix)
+    cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
+    common_cpgs = sorted(set.intersection(*cpgs_sets.values()))
+    print(f"\n  Common CpGs across all datasets: {len(common_cpgs)}")
 
-# Save common CpG list
-common_cpg_path = DATA_DIR / "common_cpgs.txt"
-with open(common_cpg_path, "w") as f:
-    f.write("\n".join(common_cpgs))
-print(f"  Saved: {common_cpg_path}")
+    # Save common CpG list
+    common_cpg_path = DATA_DIR / "common_cpgs.txt"
+    with open(common_cpg_path, "w") as f:
+        f.write("\n".join(common_cpgs))
+    print(f"  Saved: {common_cpg_path}")
 
 # ── Step 6: Align metadata ────────────────────────────────────────────────────
 print("\n=== Step 6: Aligning metadata ===")
