@@ -22,8 +22,8 @@ QC_REPORT       = DATA_DIR / "qc_report.txt"
 BETA_T2         = DATA_DIR / "beta_matrix_t2.parquet"
 
 # ── Per-dataset QC'd beta matrices (samples x CpGs) ─────────────────────────
-GSE40279_BETA   = DATA_DIR / "GSE40279_beta.parquet"
-GSE87571_BETA   = DATA_DIR / "GSE87571_beta.parquet"
+GSE40279_BETA   = DATA_DIR / "GSE40279_beta.h5"
+GSE87571_BETA   = DATA_DIR / "GSE87571_beta.h5"
 COMMON_CPGS     = DATA_DIR / "common_cpgs.txt"
 
 # ── Intermediate outputs ──────────────────────────────────────────────────────

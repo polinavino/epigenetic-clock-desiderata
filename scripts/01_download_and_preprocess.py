@@ -359,39 +359,42 @@ for gse_id in DATASETS:
 print("\n=== Step 5: Saving QC'd datasets as parquet ===")
 
 # Skip if both parquet files already exist and are readable
-import pyarrow.parquet as pq
-def parquet_valid(path):
+def h5_valid(path):
     try:
-        pq.read_schema(str(path))
-        return True
+        import tables
+        with tables.open_file(str(path), mode="r"):
+            return True
     except Exception:
         return False
 
-gse40279_ok = parquet_valid(DATA_DIR / "GSE40279_beta.parquet")
-gse87571_ok = parquet_valid(DATA_DIR / "GSE87571_beta.parquet")
+gse40279_ok = h5_valid(DATA_DIR / "GSE40279_beta.h5")
+gse87571_ok = h5_valid(DATA_DIR / "GSE87571_beta.h5")
 common_ok   = (DATA_DIR / "common_cpgs.txt").exists()
 
 if gse40279_ok and gse87571_ok and common_ok:
-    print("  Parquet files already exist and are valid -- skipping save.")
-    print("  Delete data/GSE40279_beta.parquet and data/GSE87571_beta.parquet to force rerun.")
-    # Still need common_cpgs for downstream
+    print("  HDF5 files already exist and are valid -- skipping save.")
+    print("  Delete data/GSE40279_beta.h5 and data/GSE87571_beta.h5 to force rerun.")
     cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
     common_cpgs = sorted(set.intersection(*cpgs_sets.values()))
 else:
     if not gse40279_ok:
-        print("  GSE40279 parquet missing or corrupt -- regenerating.")
+        print("  GSE40279 HDF5 missing or corrupt -- regenerating.")
     if not gse87571_ok:
-        print("  GSE87571 parquet missing or corrupt -- regenerating.")
+        print("  GSE87571 HDF5 missing or corrupt -- regenerating.")
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import DATA_DIR
 
 for gse_id in beta_qc:
-    out_path = DATA_DIR / f"{gse_id}_beta.parquet"
+    out_path = DATA_DIR / f"{gse_id}_beta.h5"
     print(f"  Saving {gse_id}: {beta_qc[gse_id].shape} (CpGs x samples)...")
-    beta_qc[gse_id].T.to_parquet(out_path)
-    print(f"  Saved: {out_path}")
+    # Save as HDF5 (CpGs x samples orientation)
+    # Parquet is unsuitable for wide matrices (470k columns causes thrift overflow)
+    # HDF5 handles arbitrary matrix shapes efficiently
+    h5_path = str(out_path).replace(".parquet", ".h5")
+    beta_qc[gse_id].to_hdf(h5_path, key="beta", mode="w", complevel=5)
+    print(f"  Saved: {h5_path}")
 
     # Find common CpGs (just the list, no large matrix)
     cpgs_sets = {gse_id: set(beta_qc[gse_id].index) for gse_id in beta_qc}
