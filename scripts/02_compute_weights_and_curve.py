@@ -262,28 +262,19 @@ r_pc1_age, p_pc1_age = pearsonr(pc1_scores, ages_all)
 print(f"  PC1 correlation with age: r={r_pc1_age:.3f}, p={p_pc1_age:.2e}")
 print(f"  {'PASS: PC1 captures age variation' if abs(r_pc1_age) > 0.7 else 'WARNING: PC1 weakly correlated with age'}")
 
-# Fit principal curve using pcurvepy (Hastie-Stuetzle algorithm)
-try:
-    import pcurve
-    print(f"\n  Fitting principal curve (k={PC_SMOOTHING}, this may take a few minutes)...")
-    pc = pcurve.PrincipalCurve(k=int(PC_SMOOTHING * 10))
-    pc.fit(X_scaled_centered)
-    curve_points = pc.p        # points on the curve (n x N_TOP_CPGS)
-    tau_raw      = pc.pseudotime   # arc-length parameter per sample
-    print(f"  Principal curve fit complete.")
-    print(f"  Curve points shape: {curve_points.shape}")
+# Fit principal curve using our Hastie-Stuetzle implementation
+from principal_curve import fit_principal_curve
 
-except ImportError:
-    # Fallback: use PCA line as approximate principal curve
-    # This is a degenerate (linear) case but still valid for analysis
-    print("\n  pcurvepy not found -- using PCA line as linear approximation.")
-    print("  Install pcurvepy for full principal curve: pip install pcurvepy")
-    # Project onto PC1 and reconstruct
-    pc1_vec   = pca.components_[0]                     # (N_TOP_CPGS,)
-    scores_1d = X_scaled_centered @ pc1_vec            # (n,)
-    # Curve points: projection of each sample onto the PC1 line
-    curve_points = np.outer(scores_1d, pc1_vec)        # (n, N_TOP_CPGS)
-    tau_raw = scores_1d                                # arc-length ~ PC1 score
+print(f"\n  Fitting principal curve ({N_TOP_CPGS} CpGs x {len(ages_all)} samples)...")
+print(f"  This may take 10-20 minutes...")
+curve_points, tau_raw, converged = fit_principal_curve(
+    X_scaled_centered,
+    n_iter=20,
+    smoothing_factor=PC_SMOOTHING * len(ages_all),
+    random_state=RANDOM_SEED,
+)
+print(f"  Principal curve fit complete. Converged: {converged}")
+print(f"  Curve points shape: {curve_points.shape}")
 
 # Sort tau so it increases with age (flip sign if anticorrelated)
 if np.corrcoef(tau_raw, ages_all)[0, 1] < 0:
@@ -375,7 +366,12 @@ ax.plot([ages_all.min(), ages_all.max()],
 ax.set_xlabel("Chronological age")
 ax.set_ylabel("Biological age (tau)")
 ax.set_title(f"tau vs chronological age\nr={r_tau:.3f}")
-ax.legend(["y=x", "GSE40279", "GSE87571"])
+from matplotlib.patches import Patch
+ax.legend(handles=[
+    plt.Line2D([0],[0], color="k", linestyle="--", label="y=x"),
+    Patch(color="steelblue", label="GSE40279"),
+    Patch(color="coral", label="GSE87571"),
+])
 
 # Plot 2: distribution of residual norms
 ax = axes[1]
@@ -398,6 +394,48 @@ plt.tight_layout()
 fig_path = FIGURES_DIR / "02_weights_and_curve.png"
 plt.savefig(fig_path, dpi=150, bbox_inches="tight")
 print(f"  Saved figure: {fig_path}")
+
+# ── Step 9: Batch correction for tau ─────────────────────────────────────────
+# The two datasets show a systematic offset in tau values (visible in Plot 1).
+# We correct for this by regressing out the dataset indicator from tau,
+# producing tau_corrected that is comparable across datasets.
+# This is equivalent to including dataset as a covariate in downstream analyses.
+
+print("\n=== Step 9: Batch correction ===")
+from sklearn.linear_model import LinearRegression
+
+dataset_labels = metadata.set_index("sample_id").loc[sample_ids_all, "dataset"].values
+is_gse87571 = (dataset_labels == "GSE87571").astype(float).reshape(-1, 1)
+
+# Fit: tau ~ dataset_indicator
+lr = LinearRegression()
+lr.fit(is_gse87571, tau_scaled)
+tau_corrected = tau_scaled - lr.predict(is_gse87571) + tau_scaled.mean()
+
+r_corr, _ = pearsonr(tau_corrected, ages_all)
+print(f"  tau_corrected vs age: r={r_corr:.3f}")
+print(f"  Dataset offset removed: {lr.coef_[0]:.2f} years")
+
+# Update tau_df with corrected values
+tau_df["tau_corrected"] = tau_corrected
+tau_df.to_parquet(TAU)
+print(f"  Updated: {TAU}")
+
+# Replot with corrected tau
+fig2, ax2 = plt.subplots(figsize=(6, 6))
+colors2 = ["steelblue" if d == "GSE40279" else "coral" for d in dataset_labels]
+ax2.scatter(ages_all, tau_corrected, alpha=0.3, s=10, c=colors2)
+ax2.plot([ages_all.min(), ages_all.max()],
+         [ages_all.min(), ages_all.max()], "k--", lw=1)
+ax2.set_xlabel("Chronological age")
+ax2.set_ylabel("Biological age (tau corrected)")
+ax2.set_title(f"tau_corrected vs chronological age\nr={r_corr:.3f}")
+from matplotlib.patches import Patch
+ax2.legend(handles=[Patch(color="steelblue", label="GSE40279"),
+                    Patch(color="coral", label="GSE87571")])
+fig2_path = FIGURES_DIR / "02_tau_corrected.png"
+fig2.savefig(fig2_path, dpi=150, bbox_inches="tight")
+print(f"  Saved figure: {fig2_path}")
 
 print("\n=== Script 2 complete ===")
 print(f"  tau range:    [{tau_scaled.min():.1f}, {tau_scaled.max():.1f}] years")

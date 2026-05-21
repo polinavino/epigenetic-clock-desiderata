@@ -26,6 +26,13 @@ GSE40279_BETA   = DATA_DIR / "GSE40279_beta.h5"
 GSE87571_BETA   = DATA_DIR / "GSE87571_beta.h5"
 COMMON_CPGS     = DATA_DIR / "common_cpgs.txt"
 
+# ── Script 3 outputs ─────────────────────────────────────────────────────────
+CLOCK_OUTPUTS    = DATA_DIR / "clock_outputs.parquet"
+AGE_ACCEL        = DATA_DIR / "age_acceleration.parquet"
+RANK_CONSISTENCY = DATA_DIR / "rank_consistency.parquet"
+RANK_REVERSALS   = DATA_DIR / "rank_reversals.parquet"
+INSTABILITY      = DATA_DIR / "instability_scores.parquet"
+
 # ── Intermediate outputs ──────────────────────────────────────────────────────
 WEIGHTS         = DATA_DIR / "cpg_weights.parquet"   # w_i = R2 * sigma2
 TOP_CPGS        = DATA_DIR / "top_cpgs.txt"          # selected CpG IDs
