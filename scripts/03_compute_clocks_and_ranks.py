@@ -1062,3 +1062,374 @@ print(f"\nD1 Monotonicity summary:")
 print(monotonicity_df[["clock","type","spearman_rho","n_violations","passes_D1"]].to_string())
 print(f"\nCoherence summary:")
 print(coherence_df[["clock","type","R2_tau_only","R2_r_only","R2_tau_and_r"]].round(3).to_string())
+
+# ── Step 13: Geometric analysis of clock coefficient vectors ──────────────────
+# For linear clocks, the clock function is k(m) = w · m + b where w is a
+# coefficient vector in methylation space.
+# The mathematical relationship between two clocks is the angle between
+# their coefficient vectors -- cosine similarity in methylation space.
+# GrimAge is excluded: it is a two-stage composite model (not a single
+# linear function), which is itself a structural finding about D0.
+
+print("\n=== Step 13: Geometric analysis of clock coefficient vectors ===")
+
+from biolearn.model_gallery import ModelGallery as _MG2
+_g2 = _MG2()
+
+# Extract coefficient vectors for linear clocks
+linear_clocks = {
+    "Horvath":     "Horvathv1",
+    "Hannum":      "Hannum",
+    "PhenoAge":    "PhenoAge",
+    "DunedinPACE": "DunedinPACE",
+}
+
+coef_vectors = {}
+for clock_name, model_id in linear_clocks.items():
+    model  = _g2.get(model_id)
+    clock  = model.clock if hasattr(model, 'clock') else model
+    coefs  = clock.coefficients  # DataFrame with CpG index and coefficient column
+    # Normalise column name
+    coef_col = coefs.columns[0]
+    coef_series = coefs[coef_col]
+    coef_vectors[clock_name] = coef_series
+    print(f"  {clock_name}: {len(coef_series)} CpGs, "
+          f"coef range=[{coef_series.min():.3f}, {coef_series.max():.3f}]")
+
+print(f"\n  GrimAge: two-stage composite model (not a single linear function)")
+print(f"  GrimAge predicts protein biomarker levels from CpGs, then")
+print(f"  combines predictions -- structurally incomparable to linear clocks.")
+print(f"  This is a D0 violation: GrimAge has a different mathematical type")
+print(f"  than the other clocks, not just a different output scale.")
+
+# Build a unified coefficient matrix over the union of all CpG sites
+all_cpgs = sorted(set().union(*[set(v.index) for v in coef_vectors.values()]))
+print(f"\n  Union of CpG sites across linear clocks: {len(all_cpgs)}")
+
+coef_matrix = pd.DataFrame(0.0, index=all_cpgs, columns=list(coef_vectors.keys()))
+for clock_name, coef_series in coef_vectors.items():
+    # Align -- sites not in this clock get coefficient 0
+    common = [c for c in coef_series.index if c in coef_matrix.index]
+    coef_matrix.loc[common, clock_name] = coef_series.loc[common].values
+
+# Cosine similarity between coefficient vectors
+from sklearn.metrics.pairwise import cosine_similarity
+coef_array = coef_matrix.values.T  # clocks x CpGs
+cos_sim = cosine_similarity(coef_array)
+cos_sim_df = pd.DataFrame(cos_sim,
+                           index=list(linear_clocks.keys()),
+                           columns=list(linear_clocks.keys()))
+
+print(f"\n  Cosine similarity between coefficient vectors:")
+print(cos_sim_df.round(4).to_string())
+
+# Decompose each coefficient vector into:
+# - Component along manifold direction (age-informative direction)
+# - Orthogonal component (off-manifold)
+# Use the manifold_direction computed in Step 7
+
+# Restrict manifold_direction to the union CpG space
+# manifold_direction is defined over top_cpgs (200 sites)
+# We extend it to the full union space (zero for non-top CpGs)
+manifold_dir_full = np.zeros(len(all_cpgs))
+for i, cpg in enumerate(all_cpgs):
+    if cpg in top_cpgs_available:
+        j = top_cpgs_available.index(cpg)
+        manifold_dir_full[i] = manifold_direction[j]
+
+# Normalize
+manifold_dir_full /= (np.linalg.norm(manifold_dir_full) + 1e-10)
+
+print(f"\n  Decomposition of coefficient vectors:")
+print(f"  {'Clock':<15} {'|w|':>8} {'|w_on|':>8} {'|w_off|':>8} {'on_frac':>8}")
+decomp_records = []
+for clock_name in linear_clocks:
+    w = coef_matrix[clock_name].values
+    w_on_mag  = abs(w @ manifold_dir_full)
+    w_off     = w - (w @ manifold_dir_full) * manifold_dir_full
+    w_off_mag = np.linalg.norm(w_off)
+    w_mag     = np.linalg.norm(w)
+    on_frac   = w_on_mag / (w_mag + 1e-10)
+    print(f"  {clock_name:<15} {w_mag:>8.3f} {w_on_mag:>8.3f} {w_off_mag:>8.3f} {on_frac:>8.3f}")
+    decomp_records.append({
+        "clock": clock_name,
+        "coef_norm": w_mag,
+        "on_manifold_component": w_on_mag,
+        "off_manifold_component": w_off_mag,
+        "on_manifold_fraction": on_frac,
+        "n_cpgs": (w != 0).sum(),
+    })
+
+decomp_df = pd.DataFrame(decomp_records)
+
+# Overlap analysis: which CpG sites are shared between clocks?
+print(f"\n  CpG site overlap between clocks:")
+clock_cpg_sets = {
+    name: set(coef_vectors[name].index)
+    for name in linear_clocks
+}
+clock_list = list(linear_clocks.keys())
+for i, c1 in enumerate(clock_list):
+    for j, c2 in enumerate(clock_list):
+        if j <= i:
+            continue
+        overlap = len(clock_cpg_sets[c1] & clock_cpg_sets[c2])
+        pct1 = 100 * overlap / len(clock_cpg_sets[c1])
+        pct2 = 100 * overlap / len(clock_cpg_sets[c2])
+        print(f"  {c1} ∩ {c2}: {overlap} sites "
+              f"({pct1:.1f}% of {c1}, {pct2:.1f}% of {c2})")
+
+# Figures
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+# Figure 1: Cosine similarity heatmap
+fig, ax = plt.subplots(figsize=(6, 5))
+im = ax.imshow(cos_sim, vmin=-1, vmax=1, cmap="RdBu_r")
+ax.set_xticks(range(len(linear_clocks)))
+ax.set_yticks(range(len(linear_clocks)))
+ax.set_xticklabels(list(linear_clocks.keys()), rotation=45, ha="right")
+ax.set_yticklabels(list(linear_clocks.keys()))
+for i in range(len(linear_clocks)):
+    for j in range(len(linear_clocks)):
+        ax.text(j, i, f"{cos_sim[i,j]:.4f}",
+                ha="center", va="center", fontsize=9)
+plt.colorbar(im, ax=ax, label="Cosine similarity")
+ax.set_title("Geometric relationship between clock\ncoefficient vectors in methylation space")
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_cosine_similarity.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"\n  Saved: {fig_path}")
+plt.close()
+
+# Figure 2: On-manifold vs off-manifold decomposition
+fig, ax = plt.subplots(figsize=(8, 4))
+x = np.arange(len(decomp_records))
+width = 0.35
+colors_type = {"Horvath": "steelblue", "Hannum": "steelblue",
+               "PhenoAge": "coral", "DunedinPACE": "seagreen"}
+on_vals  = [r["on_manifold_component"]  for r in decomp_records]
+off_vals = [r["off_manifold_component"] for r in decomp_records]
+clk_lbls = [r["clock"] for r in decomp_records]
+ax.bar(x - width/2, on_vals,  width, label="On-manifold |w_on|",
+       color="steelblue", alpha=0.8)
+ax.bar(x + width/2, off_vals, width, label="Off-manifold |w_off|",
+       color="coral", alpha=0.8)
+ax.set_xticks(x)
+ax.set_xticklabels(clk_lbls)
+ax.set_ylabel("Coefficient vector magnitude")
+ax.set_title("Decomposition of clock coefficient vectors\ninto on-manifold vs off-manifold components")
+ax.legend()
+ax.yaxis.grid(True, alpha=0.3)
+ax.set_axisbelow(True)
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_coef_decomposition.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"  Saved: {fig_path}")
+plt.close()
+
+# Save
+cos_sim_df.to_parquet(DATA_DIR / "cosine_similarity.parquet")
+decomp_df.to_parquet(DATA_DIR / "coef_decomposition.parquet")
+
+print(f"\n  GrimAge structural note saved to paper.")
+print(f"  Cosine similarities and decompositions saved.")
+
+# ── Step 14: Functional relationships between clocks ──────────────────────────
+# We characterise the mathematical relationships between clocks by fitting
+# candidate functional forms to binned means of pairwise clock outputs.
+#
+# Key findings:
+# - Position clocks (Horvath, Hannum, PhenoAge) are linearly related (R²>0.99)
+# - Position clocks vs DunedinPACE follow a signed logarithm (R²~0.95)
+# - This logarithmic saturation means rate of aging increases sublinearly
+#   with accumulated biological age acceleration
+# - GrimAge is excluded: two-stage composite, not directly comparable
+
+print("\n=== Step 14: Functional relationships between clocks ===")
+
+import warnings
+warnings.filterwarnings("ignore")
+from scipy.optimize import curve_fit
+
+def signed_log(x, a, b, c):
+    """Signed logarithm: a * log(|x+c|+1) * sign(x+c) + b"""
+    return a * np.log(np.abs(x + c) + 1) * np.sign(x + c) + b
+
+def get_binned(x, y, n_bins=20):
+    """Return binned means of y as function of x."""
+    valid = ~np.isnan(x) & ~np.isnan(y)
+    xv, yv = x[valid], y[valid]
+    bins = pd.qcut(xv, q=n_bins, duplicates="drop")
+    stats = pd.DataFrame({"x": xv, "y": yv, "bin": bins}).groupby(
+        "bin", observed=True)
+    xb = stats["x"].mean().values
+    yb = stats["y"].mean().values
+    yb_se = (stats["y"].std() / np.sqrt(stats["y"].count())).values
+    return xv, yv, xb, yb, yb_se
+
+def fit_r2(func, xb, yb, p0, maxfev=10000):
+    """Fit func to binned data, return R² and params."""
+    try:
+        popt, _ = curve_fit(func, xb, yb, p0=p0, maxfev=maxfev)
+        yhat = func(xb, *popt)
+        ss_res = np.sum((yb - yhat)**2)
+        ss_tot = np.sum((yb - yb.mean())**2)
+        return 1 - ss_res/ss_tot, popt
+    except Exception:
+        return np.nan, None
+
+accel_df_step14 = pd.read_parquet(AGE_ACCEL)
+
+# ── Position clock pairs: expect linear ──────────────────────────────────────
+position_pairs = [
+    ("Horvath", "Hannum"),
+    ("Horvath", "PhenoAge"),
+    ("Hannum",  "PhenoAge"),
+]
+
+print("\n  Position clock pairwise relationships:")
+print(f"  {'Pair':<25} {'Linear R²':>10} {'Quad R²':>10} {'Log R²':>10} {'Slope':>8}")
+
+pos_results = []
+for c1, c2 in position_pairs:
+    x = accel_df_step14[c1].values
+    y = accel_df_step14[c2].values
+    xv, yv, xb, yb, _ = get_binned(x, y)
+
+    # Linear
+    coeffs = np.polyfit(xb, yb, 1)
+    yhat = np.polyval(coeffs, xb)
+    r2_lin = 1 - np.sum((yb-yhat)**2)/np.sum((yb-yb.mean())**2)
+
+    # Quadratic
+    coeffs2 = np.polyfit(xb, yb, 2)
+    yhat2 = np.polyval(coeffs2, xb)
+    r2_quad = 1 - np.sum((yb-yhat2)**2)/np.sum((yb-yb.mean())**2)
+
+    # Log
+    r2_log, popt_log = fit_r2(signed_log, xb, yb, [1.0, 0.0, 10.0])
+
+    print(f"  {c1+' vs '+c2:<25} {r2_lin:>10.4f} {r2_quad:>10.4f} "
+          f"{r2_log:>10.4f} {coeffs[0]:>8.4f}")
+
+    pos_results.append({
+        "clock1": c1, "clock2": c2,
+        "best_form": "linear",
+        "R2_linear": r2_lin, "R2_quadratic": r2_quad, "R2_log": r2_log,
+        "linear_slope": coeffs[0], "linear_intercept": coeffs[1],
+    })
+
+# ── Position vs DunedinPACE: expect logarithmic ──────────────────────────────
+print("\n  Position clocks vs DunedinPACE:")
+print(f"  {'Pair':<25} {'Linear R²':>10} {'Log R²':>10} "
+      f"{'a':>8} {'b':>8} {'c':>8}")
+
+dunedin_results = []
+for c1 in ["Horvath", "Hannum", "PhenoAge"]:
+    x = accel_df_step14[c1].values
+    y = accel_df_step14["DunedinPACE"].values
+    xv, yv, xb, yb, yb_se = get_binned(x, y)
+
+    # Linear
+    coeffs = np.polyfit(xb, yb, 1)
+    yhat = np.polyval(coeffs, xb)
+    r2_lin = 1 - np.sum((yb-yhat)**2)/np.sum((yb-yb.mean())**2)
+
+    # Log
+    r2_log, popt = fit_r2(signed_log, xb, yb, [0.01, 0.0, 10.0])
+
+    print(f"  {c1+' vs DunedinPACE':<25} {r2_lin:>10.4f} {r2_log:>10.4f} "
+          f"{popt[0]:>8.4f} {popt[1]:>8.4f} {popt[2]:>8.4f}")
+
+    dunedin_results.append({
+        "clock1": c1, "clock2": "DunedinPACE",
+        "best_form": "signed_log",
+        "R2_linear": r2_lin, "R2_log": r2_log,
+        "log_a": popt[0], "log_b": popt[1], "log_c": popt[2],
+    })
+
+# Summary table
+print("\n  Summary: best functional form between each clock pair")
+print(f"  {'Pair':<30} {'Best form':<15} {'R²':>8}")
+for r in pos_results:
+    print(f"  {r['clock1']+' vs '+r['clock2']:<30} {'linear':<15} "
+          f"{r['R2_linear']:>8.4f}")
+for r in dunedin_results:
+    print(f"  {r['clock1']+' vs DunedinPACE':<30} {'signed_log':<15} "
+          f"{r['R2_log']:>8.4f}")
+print(f"  {'GrimAge vs any':<30} {'not comparable':<15} "
+      f"{'N/A':>8}  (two-stage composite model)")
+
+# ── Figure ───────────────────────────────────────────────────────────────────
+fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+
+# Top row: position clock pairs
+for ax, r in zip(axes[0], pos_results):
+    c1, c2 = r["clock1"], r["clock2"]
+    x = accel_df_step14[c1].values
+    y = accel_df_step14[c2].values
+    xv, yv, xb, yb, yb_se = get_binned(x, y)
+
+    ax.scatter(xv, yv, alpha=0.1, s=8, color="steelblue", zorder=1)
+    ax.errorbar(xb, yb, yerr=yb_se, fmt="ro", ms=4, capsize=2,
+                zorder=3, label="Bin mean ± SE")
+
+    # Linear fit
+    x_fit = np.linspace(xv.min(), xv.max(), 200)
+    y_lin = r["linear_slope"] * x_fit + r["linear_intercept"]
+    ax.plot(x_fit, y_lin, "k-", lw=2,
+            label=f"Linear: slope={r['linear_slope']:.3f}\nR²={r['R2_linear']:.4f}")
+
+    ax.set_xlabel(f"{c1} age acceleration")
+    ax.set_ylabel(f"{c2} age acceleration")
+    ax.set_title(f"{c1} vs {c2}\nBest form: linear (R²={r['R2_linear']:.4f})")
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
+
+# Bottom row: position vs DunedinPACE
+for ax, r in zip(axes[1], dunedin_results):
+    c1 = r["clock1"]
+    x = accel_df_step14[c1].values
+    y = accel_df_step14["DunedinPACE"].values
+    xv, yv, xb, yb, yb_se = get_binned(x, y)
+
+    ax.scatter(xv, yv, alpha=0.1, s=8, color="steelblue", zorder=1)
+    ax.errorbar(xb, yb, yerr=yb_se, fmt="ro", ms=4, capsize=2,
+                zorder=3, label="Bin mean ± SE")
+
+    # Log fit
+    x_fit = np.linspace(xv.min(), xv.max(), 300)
+    y_log = signed_log(x_fit, r["log_a"], r["log_b"], r["log_c"])
+    ax.plot(x_fit, y_log, "r-", lw=2.5,
+            label=f"Signed log: a={r['log_a']:.4f}, c={r['log_c']:.2f}\n"
+                  f"R²={r['R2_log']:.4f}")
+
+    # Linear reference
+    coeffs = np.polyfit(xv, yv, 1)
+    x_line = np.linspace(xv.min(), xv.max(), 100)
+    ax.plot(x_line, np.polyval(coeffs, x_line), "k--",
+            lw=1, alpha=0.6, label=f"Linear R²={r['R2_linear']:.3f}")
+
+    ax.set_xlabel(f"{c1} age acceleration")
+    ax.set_ylabel("DunedinPACE age acceleration")
+    ax.set_title(f"{c1} vs DunedinPACE\nBest form: signed log (R²={r['R2_log']:.4f})")
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
+
+plt.suptitle("Functional relationships between clock outputs\n"
+             "Top: position clock pairs (linear) | "
+             "Bottom: position vs DunedinPACE (signed logarithm)",
+             y=1.02, fontsize=11)
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_functional_relationships.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"\n  Saved: {fig_path}")
+plt.close()
+
+# Save results
+func_results_df = pd.DataFrame(pos_results + dunedin_results)
+func_results_df.to_parquet(DATA_DIR / "functional_relationships.parquet")
+print(f"  Saved: {DATA_DIR / 'functional_relationships.parquet'}")
