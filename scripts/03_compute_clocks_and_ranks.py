@@ -713,3 +713,352 @@ print(kappa_results["combined"].round(3).to_string())
 print(f"\nRank reversal decomposition:")
 print(reversals_df[["clock1","clock2","kappa","reversal_rate",
                      "tau_driven_frac","r_driven_frac"]].round(3).to_string())
+"""
+Additional analyses to append to 03_compute_clocks_and_ranks.py
+Steps 9-12:
+    9.  D1 monotonicity test
+    10. Coherence test (how well does tau/r explain each clock?)
+    11. Cell type composition stability (D3 empirical)
+    12. Age acceleration correlation heatmap
+"""
+
+# ── Step 9: D1 — Monotonicity test ───────────────────────────────────────────
+# D1 requires that E[k(s(t))] is non-decreasing in t for position/deviation
+# clocks, and E[k(s(t))] > 0 for rate clocks.
+# We test this by binning samples into age deciles and checking whether
+# mean clock output increases monotonically across bins.
+
+print("\n=== Step 9: D1 Monotonicity test ===")
+
+from scipy.stats import spearmanr
+
+# Bin by chronological age into deciles
+n_bins = 10
+age_bins = pd.qcut(ages, q=n_bins, labels=False)
+
+monotonicity_records = []
+for clock_name in CLOCKS:
+    clock_type = CLOCKS[clock_name]["type"]
+    vals = clock_df[clock_name].values
+
+    # Mean clock output per age bin
+    bin_means = []
+    bin_ages  = []
+    for b in range(n_bins):
+        mask_b = (age_bins == b) & ~np.isnan(vals)
+        if mask_b.sum() > 0:
+            bin_means.append(vals[mask_b].mean())
+            bin_ages.append(ages[mask_b].mean())
+
+    bin_means = np.array(bin_means)
+    bin_ages  = np.array(bin_ages)
+
+    # Spearman correlation between bin rank and mean clock output
+    rho, pval = spearmanr(bin_ages, bin_means)
+
+    # Count monotone violations: bins where mean decreases
+    diffs = np.diff(bin_means)
+    n_violations = (diffs < 0).sum()
+    n_possible   = len(diffs)
+
+    if clock_type == "T_rate":
+        # For rate clocks check mean > 0 (already known for DunedinPACE)
+        mean_rate = vals[~np.isnan(vals)].mean()
+        passes = mean_rate > 0
+        print(f"  {clock_name} (T_rate): mean={mean_rate:.3f} "
+              f"({'PASS' if passes else 'FAIL'}: expected > 0)")
+    else:
+        passes = n_violations == 0
+        print(f"  {clock_name} ({clock_type}): rho={rho:.3f}, "
+              f"violations={n_violations}/{n_possible} "
+              f"({'PASS' if passes else f'FAIL: {n_violations} non-monotone bins'})")
+
+    monotonicity_records.append({
+        "clock": clock_name,
+        "type":  clock_type,
+        "spearman_rho": rho,
+        "spearman_p": pval,
+        "n_violations": n_violations,
+        "n_bins": n_possible,
+        "passes_D1": passes,
+        "bin_means": bin_means.tolist(),
+        "bin_ages":  bin_ages.tolist(),
+    })
+
+monotonicity_df = pd.DataFrame([
+    {k: v for k, v in r.items() if k not in ("bin_means", "bin_ages")}
+    for r in monotonicity_records
+])
+
+# Figure: mean clock output per age bin
+fig, axes = plt.subplots(1, len(CLOCKS), figsize=(18, 4))
+colors_by_type = {"T_tau": "steelblue", "T_delta": "coral", "T_rate": "seagreen"}
+for ax, rec in zip(axes, monotonicity_records):
+    color = colors_by_type[rec["type"]]
+    ax.plot(rec["bin_ages"], rec["bin_means"], "o-", color=color, lw=2, ms=6)
+    ax.set_xlabel("Mean chronological age in bin")
+    ax.set_ylabel("Mean clock output")
+    ax.set_title(f"{rec['clock']}\nrho={rec['spearman_rho']:.3f}, "
+                 f"violations={rec['n_violations']}")
+    ax.grid(True, alpha=0.3)
+
+plt.suptitle("D1: Monotonicity of clock outputs across age bins", y=1.02)
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_d1_monotonicity.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"  Saved: {fig_path}")
+plt.close()
+
+# ── Step 10: Coherence test ───────────────────────────────────────────────────
+# A coherent clock should be well-explained by (tau, ||r||_*).
+# We regress each clock's age acceleration on tau and residual_norm,
+# and report R^2. A high R^2 means the clock is coherent with our framework.
+# A low R^2 means the clock is measuring something not captured by tau or r.
+
+print("\n=== Step 10: Coherence test ===")
+
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
+
+# Align tau and residuals to sample_ids
+tau_aligned      = tau_df.loc[sample_ids, "tau"].values
+resid_aligned    = tau_df.loc[sample_ids, "residual_norm"].values
+
+# Feature matrix: [tau, residual_norm, tau^2] (allow mild nonlinearity)
+X_coh = np.column_stack([
+    tau_aligned,
+    resid_aligned,
+    tau_aligned ** 2,
+    resid_aligned ** 2,
+    tau_aligned * resid_aligned,
+])
+
+scaler = StandardScaler()
+X_coh_scaled = scaler.fit_transform(X_coh)
+
+coherence_records = []
+for clock_name in CLOCKS:
+    clock_type = CLOCKS[clock_name]["type"]
+    vals = accel_df[clock_name].values
+    valid = ~np.isnan(vals) & ~np.isnan(tau_aligned) & ~np.isnan(resid_aligned)
+
+    if valid.sum() < 50:
+        continue
+
+    lr = LinearRegression()
+    lr.fit(X_coh_scaled[valid], vals[valid])
+    preds = lr.predict(X_coh_scaled[valid])
+    r2 = r2_score(vals[valid], preds)
+
+    # Also compute partial R^2 for tau alone and r alone
+    lr_tau = LinearRegression()
+    lr_tau.fit(tau_aligned[valid].reshape(-1,1), vals[valid])
+    r2_tau = r2_score(vals[valid], lr_tau.predict(tau_aligned[valid].reshape(-1,1)))
+
+    lr_r = LinearRegression()
+    lr_r.fit(resid_aligned[valid].reshape(-1,1), vals[valid])
+    r2_r = r2_score(vals[valid], lr_r.predict(resid_aligned[valid].reshape(-1,1)))
+
+    print(f"  {clock_name} ({clock_type}): R2(tau+r)={r2:.3f}, "
+          f"R2(tau only)={r2_tau:.3f}, R2(r only)={r2_r:.3f}")
+
+    coherence_records.append({
+        "clock": clock_name,
+        "type":  clock_type,
+        "R2_tau_and_r": r2,
+        "R2_tau_only":  r2_tau,
+        "R2_r_only":    r2_r,
+        "R2_unexplained": 1 - r2,
+    })
+
+coherence_df = pd.DataFrame(coherence_records)
+
+# Figure: coherence bar chart
+fig, ax = plt.subplots(figsize=(9, 5))
+x = np.arange(len(coherence_records))
+width = 0.25
+colors_t = [colors_by_type[r["type"]] for r in coherence_records]
+clk_labels = [r["clock"] for r in coherence_records]
+
+ax.bar(x - width, [r["R2_tau_only"]  for r in coherence_records],
+       width, label="R² (tau only)",    color="steelblue",  alpha=0.8)
+ax.bar(x,         [r["R2_r_only"]    for r in coherence_records],
+       width, label="R² (||r|| only)", color="coral",       alpha=0.8)
+ax.bar(x + width, [r["R2_tau_and_r"] for r in coherence_records],
+       width, label="R² (tau + ||r||)", color="seagreen",   alpha=0.8)
+
+ax.set_xticks(x)
+ax.set_xticklabels(clk_labels)
+ax.set_ylabel("R² (fraction of age acceleration variance explained)")
+ax.set_title("Coherence test: how well does (tau, ||r||) explain each clock?\n"
+             "Higher = more coherent with canonical trajectory framework")
+ax.legend()
+ax.set_ylim(0, 1)
+ax.yaxis.grid(True, alpha=0.3)
+ax.set_axisbelow(True)
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_coherence_test.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"  Saved: {fig_path}")
+plt.close()
+
+# ── Step 11: Cell type stability (D3 empirical) ───────────────────────────────
+# D3 requires clocks to be stable under cell type composition shifts.
+# We estimate blood cell type proportions using biolearn's DeconvoluteBlood450K,
+# then measure how much each clock's age acceleration correlates with cell
+# composition after controlling for chronological age.
+# A high correlation = the clock is confounded by cell type = D3 violated.
+
+print("\n=== Step 11: Cell type stability (D3) ===")
+
+try:
+    print("  Running blood cell type deconvolution...")
+    deconv_model  = gallery.get("DeconvoluteBlood450K")
+    deconv_result = deconv_model.predict(geo_data)
+
+    print(f"  Deconvolution output shape: {deconv_result.shape}")
+    print(f"  Cell types: {deconv_result.columns.tolist()}")
+
+    # Align to sample_ids
+    deconv_aligned = deconv_result.reindex(sample_ids)
+    cell_types = deconv_result.columns.tolist()
+
+    # For each clock, partial correlation of age acceleration with each
+    # cell type proportion, after controlling for chronological age
+    from scipy.stats import pearsonr as _pr
+
+    d3_records = []
+    for clock_name in CLOCKS:
+        if CLOCKS[clock_name]["type"] == "T_rate":
+            continue
+        accel_vals = accel_df[clock_name].values
+        valid = ~np.isnan(accel_vals)
+
+        cell_cors = {}
+        for ct in cell_types:
+            ct_vals = deconv_aligned[ct].values
+            ct_valid = valid & ~np.isnan(ct_vals)
+            if ct_valid.sum() < 50:
+                continue
+            r, p = _pr(accel_vals[ct_valid], ct_vals[ct_valid])
+            cell_cors[ct] = r
+
+        # Summary: max absolute correlation with any cell type
+        max_cor = max(abs(v) for v in cell_cors.values()) if cell_cors else np.nan
+        print(f"  {clock_name}: max |r| with cell types = {max_cor:.3f} "
+              f"({'PASS D3' if max_cor < 0.2 else 'FAIL D3: cell type confound'})")
+
+        d3_records.append({
+            "clock": clock_name,
+            "type":  CLOCKS[clock_name]["type"],
+            "max_cell_cor": max_cor,
+            "cell_cors": cell_cors,
+            "passes_D3": max_cor < 0.2,
+        })
+
+    # Figure: cell type correlation heatmap
+    cell_cor_mat = pd.DataFrame(
+        {r["clock"]: r["cell_cors"] for r in d3_records}
+    ).T  # clocks x cell_types
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    im = ax.imshow(cell_cor_mat.values, cmap="RdBu_r", vmin=-0.4, vmax=0.4,
+                   aspect="auto")
+    ax.set_xticks(range(len(cell_cor_mat.columns)))
+    ax.set_xticklabels(cell_cor_mat.columns, rotation=45, ha="right", fontsize=9)
+    ax.set_yticks(range(len(cell_cor_mat.index)))
+    ax.set_yticklabels(cell_cor_mat.index, fontsize=10)
+    for i in range(len(cell_cor_mat.index)):
+        for j in range(len(cell_cor_mat.columns)):
+            val = cell_cor_mat.values[i, j]
+            if not np.isnan(val):
+                ax.text(j, i, f"{val:.2f}", ha="center", va="center",
+                       fontsize=8, color="black")
+    plt.colorbar(im, ax=ax, label="Pearson r with age acceleration")
+    ax.set_title("D3: Cell type composition confounding\n"
+                 "(correlation of age acceleration with cell type proportions)")
+    plt.tight_layout()
+    fig_path = FIGURES_DIR / "03_d3_cell_type.png"
+    plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+    print(f"  Saved: {fig_path}")
+    plt.close()
+
+except Exception as e:
+    print(f"  Cell type deconvolution failed: {e}")
+    print("  Skipping D3 cell type analysis.")
+    d3_records = []
+
+# ── Step 12: Age acceleration correlation heatmap ────────────────────────────
+# Shows pairwise Pearson correlations between age acceleration residuals.
+# Complements the rank consistency (Kendall kappa) matrix.
+# High Pearson r but low kappa = clocks agree on average but disagree on
+# individual rankings (non-linear relationship).
+
+print("\n=== Step 12: Age acceleration correlation heatmap ===")
+
+from scipy.stats import pearsonr as _pr2
+
+corr_mat = np.full((n_clocks, n_clocks), np.nan)
+for i, k1 in enumerate(clock_names):
+    for j, k2 in enumerate(clock_names):
+        v1 = accel_df[k1].values
+        v2 = accel_df[k2].values
+        valid = ~np.isnan(v1) & ~np.isnan(v2)
+        if valid.sum() < 10:
+            continue
+        r, _ = _pr2(v1[valid], v2[valid])
+        corr_mat[i, j] = r
+
+corr_df = pd.DataFrame(corr_mat, index=clock_names, columns=clock_names)
+print("\n  Pearson correlation of age accelerations:")
+print(corr_df.round(3).to_string())
+
+# Figure: side-by-side Pearson r and Kendall kappa
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+for ax, (mat, title) in zip(axes, [
+    (corr_mat,                        "Pearson r\n(age acceleration)"),
+    (kappa_results["combined"].values, "Kendall kappa\n(rank consistency)"),
+]):
+    im = ax.imshow(mat, vmin=0.5, vmax=1.0, cmap="RdYlGn")
+    ax.set_xticks(range(n_clocks))
+    ax.set_yticks(range(n_clocks))
+    ax.set_xticklabels(clock_names, rotation=45, ha="right", fontsize=9)
+    ax.set_yticklabels(clock_names, fontsize=9)
+    for i in range(n_clocks):
+        for j in range(n_clocks):
+            val = mat[i, j]
+            if not np.isnan(val):
+                t1 = CLOCKS[clock_names[i]]["type"]
+                t2 = CLOCKS[clock_names[j]]["type"]
+                label = f"{val:.3f}" + ("*" if t1 != t2 else "")
+                ax.text(j, i, label, ha="center", va="center",
+                       fontsize=7.5, color="black")
+    plt.colorbar(im, ax=ax, shrink=0.8)
+    ax.set_title(title + "\n(* = cross-type pair)")
+
+plt.suptitle("Agreement between clocks: Pearson r vs Kendall kappa",
+             fontsize=12, y=1.02)
+plt.tight_layout()
+fig_path = FIGURES_DIR / "03_pearson_vs_kappa.png"
+plt.savefig(fig_path, dpi=150, bbox_inches="tight")
+print(f"  Saved: {fig_path}")
+plt.close()
+
+# ── Save all additional analysis outputs ──────────────────────────────────────
+print("\n=== Saving additional analysis outputs ===")
+
+monotonicity_df.to_parquet(DATA_DIR / "monotonicity.parquet")
+coherence_df.to_parquet(DATA_DIR / "coherence.parquet")
+if d3_records:
+    pd.DataFrame([{k: v for k, v in r.items() if k != "cell_cors"}
+                  for r in d3_records]).to_parquet(DATA_DIR / "d3_cell_type.parquet")
+corr_df.to_parquet(DATA_DIR / "age_accel_correlations.parquet")
+
+print("  All outputs saved.")
+print("\n=== All analyses complete ===")
+print(f"\nD1 Monotonicity summary:")
+print(monotonicity_df[["clock","type","spearman_rho","n_violations","passes_D1"]].to_string())
+print(f"\nCoherence summary:")
+print(coherence_df[["clock","type","R2_tau_only","R2_r_only","R2_tau_and_r"]].round(3).to_string())

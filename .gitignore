@@ -23,3 +23,8 @@ paper/*.synctex.gz
 
 # OS
 .DS_Store
+data/*.h5
+data/*.parquet
+data/*.csv
+data/*.txt
+data/raw/
