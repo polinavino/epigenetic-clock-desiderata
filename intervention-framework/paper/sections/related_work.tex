@@ -1,0 +1,155 @@
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Epigenetic clock generations and their implicit assumptions about intervention}
+
+Epigenetic clocks are machine learning models that predict age-related quantities
+from DNA methylation patterns at specific CpG sites. Three generations of clocks
+have been developed, each with a different training objective and, correspondingly,
+a different implicit assumption about what it means for an intervention to affect
+biological aging.
+
+First-generation clocks \cite{horvath2013,hannum2013} were trained to predict
+chronological age from methylation data. They achieve high accuracy in held-out
+samples ($R^2 > 0.95$) and generalise across tissues, establishing the empirical
+basis for methylation-based biological age estimation. However, because they are
+calibrated to chronological age, they have a structural limitation for intervention
+studies: an intervention that genuinely slows biological aging would, if the clock
+were perfectly measuring chronological age, show no effect. Their sensitivity to
+interventions is therefore accidental rather than by design.
+
+Second-generation clocks (PhenoAge \cite{levine2018}; GrimAge \cite{lu2019}) were
+trained to predict mortality risk and health-related phenotypes rather than
+chronological age directly. They show stronger and more consistent associations with
+aging outcomes and are more sensitive to interventions with documented health effects.
+However, they inherit a different version of the same structural problem: the training
+objective does not distinguish between methylation changes that cause accelerated aging
+and those that are caused by the same upstream processes that increase mortality risk.
+A drug that reduces mortality by reducing inflammation, without affecting the aging
+trajectory itself, would reduce a second-generation clock reading by design.
+
+Third-generation measures, notably DunedinPACE \cite{belsky2022} and DunedinPoAm38,
+were trained on longitudinal biomarker data to estimate the \emph{pace} of aging
+rather than biological age as a static quantity. These measures show the strongest
+and most consistent sensitivity to interventions in clinical trials, including caloric
+restriction \cite{belsky2023calerie}. We argue in Section~\ref{sec:framework} that
+this superior sensitivity reflects a structural fact: pace-of-aging measures estimate
+the rate of traversal of the aging trajectory ($\dot{s}$), while static clocks
+estimate position ($s$). These are genuinely different quantities that an intervention
+can affect independently. The apparent superiority of DunedinPACE for intervention
+studies is not simply better calibration, but reflects what these measures are
+actually measuring.
+
+Across all three generations, a common assumption is implicit but never stated: that
+a clock's output is a valid measure of biological aging by virtue of its training
+objective. This makes intervention evaluation dependent on clock choice, which is the
+circularity we aim to resolve.
+
+\subsection{The reliability and false-positives literature}
+
+A recent and practically important line of work has addressed the problem of false
+positive intervention effects in epigenetic clock studies. Borrus et al.\
+\cite{borrus2024} systematically evaluated clock responses to a range of interventions
+and showed that first-generation clocks frequently produce effects that are not
+replicable across high-reliability clock variants, do not survive multiple testing
+correction, and are inconsistent with effects of second- and third-generation clocks
+on the same datasets. They conclude that mortality-trained clocks provide more reliable
+intervention signals.
+
+This work identifies a real problem, and its empirical findings are directly relevant
+to our framework. However, its criterion for a genuine intervention effect remains
+statistical: an effect is genuine if replicable across multiple clocks and surviving
+multiple testing correction. This criterion is necessary but not sufficient. A
+replicable, multi-clock-consistent intervention effect can still be clock-gaming in
+our sense: if an intervention systematically displaces methylation in a direction
+orthogonal to the aging trajectory, multiple clocks whose weight vectors have
+components in that direction will consistently report an effect, even though the
+cell's position on the aging trajectory has not changed.
+
+The distinction is not merely theoretical. Any compound specifically designed or
+selected to reduce methylation at clock CpG sites would produce replicable,
+multi-clock-consistent effects by construction. The statistical reliability criterion
+cannot detect this; the geometric criterion we propose can.
+
+TranslAGE \cite{translagee2025}, a recently published platform harmonising 179 human
+blood methylation datasets with pre-calculated scores for 41 epigenetic clocks,
+provides the infrastructure for large-scale empirical evaluation. We use its
+harmonised datasets and accession list as the primary data source for the empirical
+component of this paper.
+
+\subsection{Causal enrichment approaches}
+
+The most technically sophisticated prior work on grounding epigenetic clocks in
+causal structure is the causality-enriched epigenetic age framework of Ying et al.\
+\cite{ying2024}. Using epigenome-wide Mendelian randomization, they identified CpG
+sites with potential causal links to aging-related traits, then trained separate
+clocks on damage-associated sites (DamAge) and adaptation-associated sites (AdaptAge).
+DamAge correlates with adverse outcomes including mortality; AdaptAge correlates with
+beneficial adaptations.
+
+We treat this work as complementary rather than competing. Their key contribution is
+distinguishing causally upstream methylation changes from downstream correlates.
+However, the framework remains clock-centric in a specific sense: it selects better
+CpG features and trains clocks on them, rather than identifying the aging manifold
+independently of any clock. The causal enrichment criterion is a property of
+individual CpG sites, not of the geometric structure of methylation space as a whole.
+
+Our framework makes a testable prediction about the relationship between these
+approaches: the causally enriched CpG sites identified by Ying et al.\ should have
+weight vectors more closely aligned with our aging direction $v^*$ than standard
+clock CpG sites. We test this prediction in Section~\ref{sec:results}.
+
+\subsection{Statistical assumptions of biological age predictors}
+
+Sluiskes et al.\ \cite{sluiskes2024} provide a careful analysis of the statistical
+assumptions implicit in widely used biological age predictors, including multiple
+regression, the Klemera-Doubal method, and PCA-based approaches. They show that these
+assumptions are frequently violated and that violations have quantifiable consequences
+for biological age estimates.
+
+This work is complementary to ours on the theoretical side. Where Sluiskes et al.\
+examine what existing methods statistically assume, we examine what a valid definition
+of biological aging should formally require. The desiderata we derive in
+Section~\ref{sec:framework} can be seen as the normative counterpart to their
+descriptive analysis of assumption violations.
+
+\subsection{Multi-omic clocks and the substrate question}
+
+A growing literature has developed biological age measures from proteomics
+\cite{lehallier2019}, metabolomics, glycan profiles, and combinations thereof.
+Studies of individual aging trajectories have shown that individuals differ in their
+ageotype --- which molecular substrate ages fastest in a given person \cite{shen2020}
+--- suggesting aging is not a single process tracked equally by all substrates.
+
+We develop our framework within the methylation substrate specifically. Methylation
+has structural properties that make it appropriate for the cross-context identification
+criterion we propose: it is measured on a common platform across tissues, enabling
+cross-tissue displacement comparisons at the CpG level; it is positioned causally
+upstream of many other aging hallmarks; and it is responsive to interventions on
+timescales accessible to clinical trials. Other molecular clocks are used in our
+validation as independent evidence for the biological relevance of our trajectory
+estimate, not as inputs to its construction. We note explicitly that concordance
+between imperfect proxies does not validate any individual proxy; mortality prediction
+on held-out data is the appropriate validation criterion.
+
+\subsection{The circularity problem}
+
+Moqri et al.\ \cite{moqri2023} provide the most explicit acknowledgment in the
+literature of the circularity inherent in using epigenetic clocks to evaluate
+interventions. Their Figure~4 diagrams the relationship: biomarkers of aging are used
+to identify geroprotectors, while geroprotectors are used to validate biomarkers.
+They propose using a small set of interventions with strong prior evidence of
+geroprotective effects to benchmark clocks, effectively using interventions to
+validate clocks rather than vice versa.
+
+This is a practically useful step, but it relocates rather than resolves the
+circularity: the prior-validated geroprotectors must themselves be grounded in
+something other than clock readings, and what that grounding is remains informal.
+Our framework makes the grounding explicit. The labeling sets $\mathcal{I}^+$ and
+$\mathcal{I}^-$ are grounded in mortality and healthspan evidence independent of
+methylation clocks --- epidemiological evidence for smoking, randomised trial evidence
+for caloric restriction, multi-species lifespan evidence for dietary restriction.
+The residual circularity in our framework --- that biological age is ultimately
+anchored to health outcomes --- is unavoidable and appropriate: any definition of
+biological age disconnected from health outcomes would be biologically uninteresting.
+What we eliminate is the clock-dependence.
