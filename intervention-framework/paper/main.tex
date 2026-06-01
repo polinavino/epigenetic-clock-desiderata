@@ -1,0 +1,72 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding and fonts ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% lmodern not available in this environment; using default CM fonts
+
+% --- Page geometry ---
+\usepackage[margin=1in]{geometry}
+
+% --- Mathematics ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+% --- Graphics and figures ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+
+% --- Bibliography ---
+\usepackage[numbers,sort&compress]{natbib}
+\bibliographystyle{unsrtnat}
+
+% --- Hyperlinks ---
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+% --- Misc ---
+% microtype disabled (font expansion requires scalable fonts)
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Title block ---
+\title{A Formal Classification of Interventions on Biological Age:\\
+       An Invariance-Based Framework for Epigenetic Aging}
+
+\author{Polina Vinogradova}
+
+\date{\today}
+
+% ---------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+% \input{sections/abstract}
+
+\tableofcontents
+\newpage
+
+% \input{sections/introduction}
+
+\input{sections/related_work}
+
+% \input{sections/framework}
+
+% \input{sections/identification}
+
+% \input{sections/results}
+
+% \input{sections/discussion}
+
+% \input{sections/conclusion}
+
+\bibliography{references}
+
+\end{document}

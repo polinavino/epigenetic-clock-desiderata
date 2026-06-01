@@ -1,7 +1,10 @@
 # Data files — too large for git, downloaded by script
+data/
 data/*.csv
 data/*.txt
 data/*.gz
+data/*.h5
+data/*.parquet
 data/raw/
 
 # Python
@@ -11,20 +14,19 @@ __pycache__/
 .env
 venv/
 
-# LaTeX build artifacts
-paper/*.aux
-paper/*.log
-paper/*.out
-paper/*.bbl
-paper/*.blg
-paper/*.fls
-paper/*.fdb_latexmk
-paper/*.synctex.gz
+# LaTeX build artifacts (any paper subdirectory)
+**/*.aux
+**/*.log
+**/*.out
+**/*.bbl
+**/*.blg
+**/*.fls
+**/*.fdb_latexmk
+**/*.synctex.gz
+**/*.toc
+
+# Compiled PDFs — comment out if you want to track these
+**/main.pdf
 
 # OS
 .DS_Store
-data/*.h5
-data/*.parquet
-data/*.csv
-data/*.txt
-data/raw/
