@@ -5,14 +5,24 @@ Path and parameter constants for the intervention framework pipeline.
 Imports shared paths from the parent repo's config.py, then adds
 intervention-specific paths and parameters.
 
-All intervention pipeline scripts import from here.
+Dataset strategy:
+  - GSE50660:  smoking blood, beta values in series matrix (Python)
+  - GSE133588: chemotherapy blood, log2 matrix -> back-transform (Python)
+  - GSE77716:  smoking blood, series matrix via R (GEOquery)
+  - GSE64930:  smoking airway, series matrix via R (GEOquery)
+  - GSE56867:  exercise muscle, series matrix via R (GEOquery)
+  - CALERIE:   requires Aging Research Biobank access (controlled)
+
+Run order:
+  1. Rscript intervention-framework/scripts/00_process_idats.R
+  2. python intervention-framework/scripts/01_download_and_preprocess.py
+  3. ... scripts 02-06
 """
 
 import sys
 from pathlib import Path
 
 # ── Import shared config ──────────────────────────────────────────────────────
-# Parent scripts/ dir contains config.py
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 from config import (
@@ -26,155 +36,145 @@ from config import (
 INTERV_DIR = DATA_DIR / "interventions"
 INTERV_DIR.mkdir(exist_ok=True)
 
-# ── Intervention dataset GEO accessions ──────────────────────────────────────
-# Each entry: accession -> metadata needed to download and label samples
+# ── Intervention datasets ─────────────────────────────────────────────────────
 #
-# I_PLUS  = age-accelerating (smoking, chemotherapy)
-# I_MINUS = geroprotective   (caloric restriction, exercise)
+# 'source': how the beta matrix is obtained
+#   'series_matrix_python' : parsed directly from GEO series matrix in Python
+#   'log2_suppl'           : supplementary log2 file, back-transform to beta
+#   'r_series_matrix'      : processed by 00_process_idats.R via GEOquery
+#   'controlled_access'    : requires application (not downloaded here)
 
 INTERVENTION_DATASETS = {
 
-    # ── I_PLUS: smoking ───────────────────────────────────────────────────────
-    # Joehanes et al. 2016 — blood, n=2,586, current/former/never smokers
-    # Illumina 450k; paired never vs current smoker subsets used for displacement
-    "GSE77716": {
-        "label":   "smoking",
+    # ── I_PLUS: smoking (blood) ───────────────────────────────────────────────
+    # Tsaprouni et al. 2014 — CARDIOGENICS cohort, n=464, whole blood
+    # Beta values confirmed in series matrix VALUE columns
+    "GSE50660": {
+        "label":   "smoking_blood",
         "sign":    "plus",
         "tissue":  "blood",
-        "design":  "cross_sectional",   # never vs current smoker comparison
+        "design":  "cross_sectional",
+        "source":  "series_matrix_python",
         "matrix_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE77nnn/GSE77716/matrix/"
-            "GSE77716_series_matrix.txt.gz"
-        ),
-        "beta_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE77nnn/GSE77716/suppl/"
-            "GSE77716_series_matrix.txt.gz"
+            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE506nnn/GSE50660/matrix/"
+            "GSE50660_series_matrix.txt.gz"
         ),
     },
 
+    # Joehanes et al. 2016 — n=2586, whole blood (processed by R script)
+    "GSE77716": {
+        "label":   "smoking_blood_large",
+        "sign":    "plus",
+        "tissue":  "blood",
+        "design":  "cross_sectional",
+        "source":  "r_series_matrix",
+        # R script output path
+        "r_beta":  str(INTERV_DIR / "GSE77716_beta_matrix.txt.gz"),
+        "r_meta":  str(INTERV_DIR / "GSE77716_geo_metadata.csv"),
+    },
+
+    # ── I_PLUS: smoking (airway) ──────────────────────────────────────────────
     # Gao et al. 2015 — airway epithelium, smokers vs never-smokers
-    # Illumina 450k; multiple tissues enable cross-context test
     "GSE64930": {
         "label":   "smoking_airway",
         "sign":    "plus",
         "tissue":  "airway",
         "design":  "cross_sectional",
-        "matrix_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE64nnn/GSE64930/matrix/"
-            "GSE64930_series_matrix.txt.gz"
-        ),
-        "beta_url": None,   # will use series matrix beta values directly
+        "source":  "r_series_matrix",
+        "r_beta":  str(INTERV_DIR / "GSE64930_beta_matrix.txt.gz"),
+        "r_meta":  str(INTERV_DIR / "GSE64930_geo_metadata.csv"),
     },
 
     # ── I_PLUS: chemotherapy ──────────────────────────────────────────────────
-    # Sehl et al. 2020 — peripheral blood, breast cancer, pre/post chemo
-    # Illumina EPIC; longitudinal paired design
+    # Sehl et al. 2020 — breast cancer, blood, pre/post chemotherapy, n=48
+    # log2 normalised M-values in supplementary file; back-transform: 2^M/(1+2^M)
     "GSE133588": {
         "label":   "chemotherapy",
         "sign":    "plus",
         "tissue":  "blood",
-        "design":  "longitudinal",      # paired pre/post
+        "design":  "longitudinal",
+        "source":  "log2_suppl",
+        "beta_url": (
+            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE133nnn/GSE133588/suppl/"
+            "GSE133588_log2_norm.txt.gz"
+        ),
         "matrix_url": (
             "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE133nnn/GSE133588/matrix/"
             "GSE133588_series_matrix.txt.gz"
         ),
-        "beta_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE133nnn/GSE133588/suppl/"
-            "GSE133588_RAW.tar"
-        ),
+    },
+
+    # ── I_MINUS: exercise ─────────────────────────────────────────────────────
+    # Lindholm et al. 2014 — skeletal muscle, 6-month exercise, n=28
+    # I_MINUS: bariatric weight loss
+    # GSE272137 - bariatric surgery, blood, n=26 paired (OB + T2D), w0 vs w52
+    # Processed beta matrix available directly; processed by process_gse272137.py
+    "GSE272137": {
+        "label":   "bariatric_weight_loss",
+        "sign":    "minus",
+        "tissue":  "blood",
+        "design":  "longitudinal",
+        "source":  "processed_direct",
+    },
+
+    "GSE56867": {
+        "label":   "exercise_muscle",
+        "sign":    "minus",
+        "tissue":  "muscle",
+        "design":  "longitudinal",
+        "source":  "r_series_matrix",
+        "r_beta":  str(INTERV_DIR / "GSE56867_beta_matrix.txt.gz"),
+        "r_meta":  str(INTERV_DIR / "GSE56867_geo_metadata.csv"),
     },
 
     # ── I_MINUS: caloric restriction (CALERIE) ────────────────────────────────
-    # Belsky et al. 2023 — blood, RCT, 25% CR vs ad libitum, 2 years
-    # Illumina EPIC; longitudinal paired design; already partially processed
-    # in parent repo script 04_calerie_analysis.py
-    "GSE180353": {
+    # Belsky/Ryan et al. — EPIC array, blood+muscle+adipose, 3 timepoints
+    # Data available from Aging Research Biobank (controlled access)
+    # Apply at: https://agingresearchbiobank.nia.nih.gov/
+    # Once approved, place beta matrix at: data/interventions/CALERIE_beta_matrix.txt.gz
+    # and metadata at: data/interventions/CALERIE_metadata.csv
+    "CALERIE": {
         "label":   "caloric_restriction",
         "sign":    "minus",
         "tissue":  "blood",
         "design":  "longitudinal",
-        "matrix_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE180nnn/GSE180353/matrix/"
-            "GSE180353_series_matrix.txt.gz"
-        ),
-        "beta_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE180nnn/GSE180353/suppl/"
-            "GSE180353_RAW.tar"
-        ),
-    },
-
-    # ── I_MINUS: exercise ─────────────────────────────────────────────────────
-    # Lindholm et al. 2014 — skeletal muscle, 6-month exercise, pre/post
-    # Illumina 450k; longitudinal
-    "GSE56867": {
-        "label":   "exercise",
-        "sign":    "minus",
-        "tissue":  "muscle",
-        "design":  "longitudinal",
-        "matrix_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE56nnn/GSE56867/matrix/"
-            "GSE56867_series_matrix.txt.gz"
-        ),
-        "beta_url": (
-            "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE56nnn/GSE56867/suppl/"
-            "GSE56867_non-normalized.txt.gz"
-        ),
+        "source":  "controlled_access",
+        "r_beta":  str(INTERV_DIR / "CALERIE_beta_matrix.txt.gz"),
+        "r_meta":  str(INTERV_DIR / "CALERIE_metadata.csv"),
+        "note":    "Apply at https://agingresearchbiobank.nia.nih.gov/",
     },
 }
 
-# ── Output paths: intervention pipeline ──────────────────────────────────────
+# ── Output paths ──────────────────────────────────────────────────────────────
 
-# Per-dataset preprocessed beta matrices (samples x CpGs)
 def interv_beta_path(accession):
     return INTERV_DIR / f"{accession}_beta.h5"
 
-# Per-dataset sample metadata (sample ID, timepoint, group, tissue, accession)
 def interv_meta_path(accession):
     return INTERV_DIR / f"{accession}_metadata.csv"
 
-# Per-dataset displacement vectors (CpGs x 1, mean post-pre per group)
 def displacement_path(accession):
     return INTERV_DIR / f"{accession}_displacement.parquet"
 
-# Assembled displacement matrix A (intervention-contexts x CpGs)
-DISPLACEMENT_MATRIX   = INTERV_DIR / "displacement_matrix_A.parquet"
-DISPLACEMENT_METADATA = INTERV_DIR / "displacement_matrix_metadata.csv"
-
-# SVD outputs
-AGING_DIRECTION       = INTERV_DIR / "aging_direction_v_star.parquet"
-SINGULAR_VALUES       = INTERV_DIR / "singular_values.parquet"
-CURVATURE_TEST        = INTERV_DIR / "curvature_test.csv"
-
-# Reoriented principal curve (gamma fitted on cross-sectional data, v* oriented)
+DISPLACEMENT_MATRIX      = INTERV_DIR / "displacement_matrix_A.parquet"
+DISPLACEMENT_METADATA    = INTERV_DIR / "displacement_matrix_metadata.csv"
+AGING_DIRECTION          = INTERV_DIR / "aging_direction_v_star.parquet"
+SINGULAR_VALUES          = INTERV_DIR / "singular_values.parquet"
+CURVATURE_TEST           = INTERV_DIR / "curvature_test.csv"
 PRINCIPAL_CURVE_ORIENTED = INTERV_DIR / "principal_curve_oriented.parquet"
 ARC_LENGTH_S             = INTERV_DIR / "arc_length_s.parquet"
-
-# Intervention classification results
-CLASSIFICATION_TABLE  = INTERV_DIR / "intervention_classification.csv"
-CALERIE_DECOMPOSITION = INTERV_DIR / "calerie_decomposition.csv"
-
-# Validation outputs
-VALIDATION_SURVIVAL   = INTERV_DIR / "validation_survival.csv"
-VALIDATION_CONCORDANCE= INTERV_DIR / "validation_concordance.csv"
-DAMAAGE_ALIGNMENT     = INTERV_DIR / "damage_alignment.csv"
+CLASSIFICATION_TABLE     = INTERV_DIR / "intervention_classification.csv"
+CALERIE_DECOMPOSITION    = INTERV_DIR / "calerie_decomposition.csv"
+VALIDATION_SURVIVAL      = INTERV_DIR / "validation_survival.csv"
+VALIDATION_CONCORDANCE   = INTERV_DIR / "validation_concordance.csv"
+DAMAAGE_ALIGNMENT        = INTERV_DIR / "damage_alignment.csv"
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
-# CpG saturation filter: exclude sites with mean beta outside this range
-BETA_MIN = 0.05
-BETA_MAX = 0.95
-
-# Clock-gaming threshold epsilon (Eq. 3 in paper):
-# ratio of tangential to total displacement below which intervention is clock-gaming
-CLOCK_GAMING_EPSILON = 0.15
-
-# Minimum number of paired samples required to compute a displacement vector
-MIN_PAIRED_SAMPLES = 10
-
-# Number of top CpGs by variance to retain for displacement matrix
-# (computational tractability; covers all major clock sites)
-N_CPGS_DISPLACEMENT = 5000
-
-# Baseline age tertile boundaries for curvature test (years)
-AGE_YOUNG_MAX = 40
-AGE_OLD_MIN   = 60
+BETA_MIN              = 0.05
+BETA_MAX              = 0.95
+CLOCK_GAMING_EPSILON  = 0.15
+MIN_PAIRED_SAMPLES    = 5     # lowered; some datasets are small (GSE56867 n=28)
+N_CPGS_DISPLACEMENT   = 5000
+AGE_YOUNG_MAX         = 40
+AGE_OLD_MIN           = 60

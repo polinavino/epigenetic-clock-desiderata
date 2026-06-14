@@ -174,6 +174,17 @@ def main():
 
     # SVD
     print("\nRunning SVD ...")
+
+    # Normalise each row (intervention-context) to unit length so that v*
+    # captures direction rather than effect magnitude. Without this, a single
+    # large-effect intervention dominates the direction estimate.
+    A_vals = A.values.copy()
+    row_norms = np.linalg.norm(A_vals, axis=1, keepdims=True)
+    row_norms[row_norms < 1e-12] = 1.0
+    A_normalised = A_vals / row_norms
+    A = pd.DataFrame(A_normalised, columns=A.columns)
+    print(f"  normalised {A.shape[0]} rows to unit length")
+
     U, s, Vt = run_svd(A)
 
     # Dimensionality test
@@ -186,8 +197,19 @@ def main():
     sv_df = pd.DataFrame({'rank': range(1, len(s)+1), 'singular_value': s})
     sv_df.to_parquet(SINGULAR_VALUES)
 
-    # Save v* (first right singular vector)
+    # Extract v* (first right singular vector)
     v_star = pd.Series(Vt[0], index=cpg_ids, name='v_star')
+
+    # Orient v* toward the age-accelerating direction.
+    # Matrix A rows are signed (+accel, -gero), so their mean points toward
+    # aging. v* should align positively with that mean; flip if not.
+    mean_signed_row = A.values.mean(axis=0)
+    if np.dot(v_star.values, mean_signed_row) < 0:
+        print("  flipping v* to point toward accelerating direction")
+        v_star = -v_star
+    else:
+        print("  v* already oriented toward accelerating direction")
+
     v_star.to_frame().to_parquet(AGING_DIRECTION)
     print(f"\n  v* saved: {AGING_DIRECTION}")
     print(f"  non-zero components: {(v_star.abs() > 1e-6).sum():,} / {len(v_star):,}")

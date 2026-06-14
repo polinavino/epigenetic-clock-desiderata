@@ -44,6 +44,25 @@ RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
 
 
+def _load_beta_any_format(path):
+    """
+    Load beta matrix from HDF5 (samples x CpGs), handling two formats:
+      - Our format: datasets 'beta', 'sample_ids', 'cpg_ids'
+      - Parent repo: pandas HDF5 key 'beta' (CpGs x samples, transposed)
+    """
+    with h5py.File(path, 'r') as f:
+        keys = list(f.keys())
+        has_our_format = 'sample_ids' in keys and 'cpg_ids' in keys
+    if has_our_format:
+        with h5py.File(path, 'r') as f:
+            sample_ids = [s.decode() for s in f['sample_ids'][:]]
+            cpg_ids    = [c.decode() for c in f['cpg_ids'][:]]
+            beta       = f['beta'][:]
+        return pd.DataFrame(beta, index=sample_ids, columns=cpg_ids)
+    else:
+        return pd.read_hdf(path, key='beta').T
+
+
 def load_existing_curve():
     """
     Load the principal curve fit by parent repo script 02.
@@ -221,11 +240,7 @@ def main():
     for name, path in [("GSE40279", GSE40279_BETA), ("GSE87571", GSE87571_BETA)]:
         if path.exists():
             print(f"  {name} ...")
-            with h5py.File(path, 'r') as f:
-                sample_ids = [s.decode() for s in f['sample_ids'][:]]
-                cpg_ids_h5 = [c.decode() for c in f['cpg_ids'][:]]
-                beta       = f['beta'][:]
-            beta_df = pd.DataFrame(beta, index=sample_ids, columns=cpg_ids_h5)
+            beta_df = _load_beta_any_format(path)
             s_series = compute_s_for_dataset(beta_df, curve_points, arc_lengths, cpg_ids)
             s_series = s_series.to_frame()
             s_series['dataset'] = name
@@ -241,11 +256,7 @@ def main():
             continue
 
         print(f"  {accession} ({config['label']}) ...")
-        with h5py.File(beta_path, 'r') as f:
-            sample_ids = [s.decode() for s in f['sample_ids'][:]]
-            cpg_ids_h5 = [c.decode() for c in f['cpg_ids'][:]]
-            beta       = f['beta'][:]
-        beta_df = pd.DataFrame(beta, index=sample_ids, columns=cpg_ids_h5)
+        beta_df = _load_beta_any_format(beta_path)
         meta_df = pd.read_csv(meta_path)
 
         s_series = compute_s_for_dataset(beta_df, curve_points, arc_lengths, cpg_ids)

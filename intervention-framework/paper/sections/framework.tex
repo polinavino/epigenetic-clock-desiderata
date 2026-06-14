@@ -1,0 +1,284 @@
+\section{Framework}
+\label{sec:framework}
+
+\subsection{The methylation state space}
+\label{sec:statespace}
+
+We represent the epigenetic state of a biological sample as a vector of CpG
+methylation beta values. For a sample measured on the Illumina 450K or EPIC array,
+this is a point $x \in [0,1]^p$ where $p$ denotes the number of CpG sites passing
+quality control, typically $p \approx 400{,}000$--$850{,}000$. We refer to this
+space as the \emph{methylation state space} $\mathcal{M} = [0,1]^p$.
+
+Although $\mathcal{M}$ is high-dimensional, empirical methylation data occupies a
+much lower-dimensional structure within it. This is the empirical basis for the
+success of dimensionality reduction methods in the clock literature and motivates
+the manifold assumption we adopt: the biologically relevant states form a smooth,
+low-dimensional submanifold of $\mathcal{M}$.
+
+\paragraph{Weighted inner product.}
+Raw Euclidean distance in $\mathcal{M}$ treats all CpG sites equally, which is
+inappropriate for cross-context comparisons: a change of $0.1$ at a highly variable
+CpG site carries different information than the same change at a nearly invariant
+site. We therefore equip $\mathcal{M}$ with a weighted inner product. For two
+displacement vectors $u, v \in \mathbb{R}^p$, define
+\begin{equation}
+  \langle u, v \rangle_c = \sum_{j=1}^{p} \frac{u_j v_j}{\sigma_{c,j}^2}
+  \label{eq:inner}
+\end{equation}
+where $\sigma_{c,j}^2$ is the variance of CpG site $j$ across control individuals
+in context $c$. This normalises displacements by per-site baseline variability,
+making them dimensionless and comparable across tissue types and cohorts.
+CpG sites with very low variance (near-constant across individuals) are downweighted
+and effectively excluded. Saturation effects near $\beta = 0$ and $\beta = 1$ are
+noted as a limitation; a Riemannian extension using the arc-sine or logit
+transformation is a natural refinement left for future work.
+
+\subsection{Interventions: general definition}
+\label{sec:interventiondef}
+
+\begin{definition}[Intervention]
+An \emph{intervention} $I$ is any externally applied perturbation to a biological
+sample. Formally, $I$ induces a map $f_I : \mathcal{M} \to \mathcal{M}$, where
+$f_I(x)$ denotes the methylation state of a sample that had state $x$ prior to
+the application of $I$.
+\end{definition}
+
+This definition makes no assumption about the direction or biological meaning of
+the perturbation. Interventions include geroprotective candidates (caloric
+restriction, rapamycin), known age-accelerating exposures (tobacco smoking,
+cytotoxic chemotherapy), pharmacological agents with unknown aging effects, and
+environmental or behavioural exposures of any kind. Classification of an
+intervention as geroprotective, age-accelerating, or clock-gaming is the
+\emph{output} of the framework, not an input to it.
+
+The \emph{mean displacement} induced by intervention $I$ in context $c$ at baseline
+state $x$ is
+\begin{equation}
+  \Delta_{I,c}(x) = \mathbb{E}\bigl[f_I(x) - x \;\big|\; \text{context } c\bigr]
+  \label{eq:displacement}
+\end{equation}
+estimated empirically from paired pre- and post-intervention methylation
+measurements in context $c$.
+
+\subsection{The aging direction}
+\label{sec:agingdirection}
+
+To identify a clock-independent aging direction, we require a set of interventions
+whose biological direction is established by evidence independent of any epigenetic
+clock.
+
+\paragraph{Calibration anchors.}
+Let $\mathcal{I}^+$ denote a set of interventions with strong prior evidence of
+accelerating biological deterioration, and $\mathcal{I}^-$ a set with strong prior
+evidence of slowing it, where in both cases the evidence is drawn from mortality,
+disease incidence, and healthspan outcomes rather than from clock readings. In the
+empirical analysis we use:
+\begin{itemize}
+  \item $\mathcal{I}^+$: tobacco smoking (epidemiological evidence for lung cancer,
+    cardiovascular disease, and all-cause mortality); cytotoxic chemotherapy
+    (accelerated functional decline and senescence burden in treated patients).
+  \item $\mathcal{I}^-$: caloric restriction (extended healthy lifespan in multiple
+    species; the CALERIE randomised trial in humans \cite{belsky2023calerie});
+    aerobic exercise (reduced all-cause mortality in observational and intervention
+    studies).
+\end{itemize}
+
+The labeling sets $\mathcal{I}^+$ and $\mathcal{I}^-$ are calibration anchors, not
+a definition of what counts as an intervention. Any perturbation, labeled or
+unlabeled, can be classified by the framework once the aging direction is identified.
+
+\paragraph{The optimization.}
+The \emph{aging direction} at state $x$ is the unit vector $v^*(x)$ that maximally
+separates the displacements of accelerating interventions from those of geroprotective
+ones, averaged across contexts:
+\begin{equation}
+  v^*(x) = \operatorname*{arg\,max}_{|v|_c = 1}
+  \left[
+    \sum_{I \in \mathcal{I}^+} \sum_c \langle \Delta_{I,c}(x),\, v \rangle_c
+    \;-\;
+    \sum_{I \in \mathcal{I}^-} \sum_c \langle \Delta_{I,c}(x),\, v \rangle_c
+  \right]
+  \label{eq:agingdir}
+\end{equation}
+where $|\cdot|_c$ denotes the norm induced by $\langle \cdot, \cdot \rangle_c$.
+
+\paragraph{SVD formulation.}
+Let $A$ be the matrix whose rows are the signed, normalised mean displacements:
+for each pair $(I, c)$, the corresponding row of $A$ is $+\Delta_{I,c}$ if
+$I \in \mathcal{I}^+$ and $-\Delta_{I,c}$ if $I \in \mathcal{I}^-$, with each
+entry divided by $\sigma_{c,j}$. Then $v^*(x)$ is the first right singular vector
+of $A$, and the first singular value $\lambda_1$ measures the total signed agreement
+across interventions and contexts. The ratio $\lambda_1 / \lambda_2$ serves as a
+test of one-dimensionality of the aging signal; we discuss this in
+Section~\ref{sec:identification}.
+
+\subsection{The aging trajectory}
+\label{sec:trajectory}
+
+\begin{definition}[Aging trajectory]
+The \emph{normal aging trajectory} $\gamma : [0,1] \to \mathcal{M}$ is the integral
+curve of the aging direction field $v^*$: the unique smooth curve satisfying
+$\gamma'(t) \propto v^*(\gamma(t))$ for all $t$, initialised at the mean methylation
+state of the youngest individuals in the population and oriented so that $t$
+increases in the direction of $v^*$.
+\end{definition}
+
+In practice $\gamma$ is estimated as a principal curve \cite{hastie1989} fit to
+cross-sectional methylation data from individuals across the age range, initialised
+along $v^*$ to ensure correct orientation. The use of chronological age here is
+limited to initialisation and orientation of the curve; it plays no role in defining
+the direction $v^*$ itself.
+
+\paragraph{Arc-length parameterisation and biological age.}
+We parameterise $\gamma$ by arc-length under $\langle \cdot, \cdot \rangle_c$,
+denoting the arc-length coordinate as $s \in [0, S]$ where $S$ is the total
+length of the estimated trajectory. The \emph{biological age position} of a sample
+with methylation state $x$ is
+\begin{equation}
+  s(x) = \text{arc-length}\bigl(\pi(x)\bigr)
+  \label{eq:bioage}
+\end{equation}
+where $\pi(x) = \operatorname{arg\,min}_{y \in \gamma} \|x - y\|_c$ is the
+projection of $x$ onto $\gamma$.
+
+\paragraph{The two-component structure of biological age.}
+Biological age as defined above is a position on a curve. For a longitudinally
+tracked individual with methylation states $x(t_1)$ and $x(t_2)$ at times $t_1$
+and $t_2$, the \emph{biological aging rate} over that interval is
+\begin{equation}
+  \dot{s} = \frac{s(x(t_2)) - s(x(t_1))}{t_2 - t_1}
+  \label{eq:agingrate}
+\end{equation}
+Position $s$ and rate $\dot{s}$ are independent quantities. An intervention may
+affect $s$ (repositioning the cell along the trajectory), $\dot{s}$ (changing the
+speed of traversal), or both. Individual variation in natural aging speed is
+variation in $\dot{s}$, not variation in $\gamma$: the trajectory is a
+population-level geometric object; individual dynamics are parameterised on top
+of it.
+
+This decomposition resolves a structural ambiguity in the existing clock literature.
+Static clocks (Horvath, GrimAge) are trained to predict quantities correlated with
+position $s$. Pace-of-aging measures (DunedinPACE) are trained on longitudinal
+biomarker data and therefore estimate $\dot{s}$. These are not competing measures
+of the same quantity; they measure genuinely different components of biological age.
+We return to this in Section~\ref{sec:discussion} in the context of the CALERIE
+trial results.
+
+\subsection{Intervention classification}
+\label{sec:classification}
+
+With the aging trajectory $\gamma$ and the projection $\pi$ in hand, we can classify
+any intervention formally.
+
+\begin{definition}[Geroprotective intervention]
+Intervention $I$ is \emph{geroprotective} at state $x$ if
+$s(f_I(x)) < s(x)$: it displaces the sample toward the younger end of the aging
+trajectory.
+\end{definition}
+
+\begin{definition}[Age-accelerating intervention]
+Intervention $I$ is \emph{age-accelerating} at state $x$ if
+$s(f_I(x)) > s(x)$: it displaces the sample toward the older end of the aging
+trajectory.
+\end{definition}
+
+\begin{definition}[Clock-gaming intervention]
+Intervention $I$ is \emph{clock-gaming} at state $x$ if the displacement
+$f_I(x) - x$ has large magnitude but small arc-length change. Formally, $I$ is
+clock-gaming if
+\begin{equation}
+  \frac{|\pi(f_I(x)) - \pi(x)|_c}{|f_I(x) - x|_c} < \epsilon
+  \label{eq:clockgaming}
+\end{equation}
+for a threshold $\epsilon \ll 1$: the intervention moves the sample substantially
+in methylation space but primarily in directions orthogonal to $\gamma$, leaving
+biological age position approximately unchanged.
+\end{definition}
+
+\begin{definition}[Curve-deforming intervention]
+Intervention $I$ is \emph{curve-deforming} if it alters the shape of $\gamma$
+itself rather than repositioning a sample along it. Partial cellular reprogramming
+via Yamanaka factors is the primary biological example: such interventions do not
+move a cell along the normal aging trajectory but place it on a qualitatively
+different trajectory. A full treatment of curve-deforming interventions requires
+an extended framework and is left for future work; we note the category here for
+completeness.
+\end{definition}
+
+Note that these categories are not mutually exclusive in general: an intervention
+may have both a tangential component (affecting $s$) and an orthogonal component
+(clock-gaming). The classification above identifies the dominant character of each
+intervention; a quantitative decomposition is given in Section~\ref{sec:results}.
+
+\subsection{Desiderata derived from the construction}
+\label{sec:desiderata}
+
+Rather than proposing desiderata and constructing a definition to satisfy them,
+we derive desiderata from the construction and show which existing clocks violate
+them and why. This is a stronger logical structure: the desiderata are theorems
+about the framework, not assumptions.
+
+\paragraph{Desideratum 1: Context invariance.}
+A valid measure of biological age should assign the same biological age to a sample
+regardless of which tissue or cohort the measurement is taken from.
+
+The aging direction $v^*$ is defined by cross-context agreement: it is the direction
+most consistently induced across tissues and cohorts by the calibration interventions.
+By construction, the arc-length position $s(x)$ is therefore tissue-independent in
+expectation. Clocks trained on blood methylation violate this desideratum when applied
+to other tissues, a well-documented failure mode \cite{horvath2013}.
+
+\paragraph{Desideratum 2: Intervention distinguishability.}
+A valid measure should distinguish geroprotective interventions from clock-gaming ones.
+
+Under the framework, geroprotective interventions reduce $s(x)$ while clock-gaming
+interventions leave $s(x)$ approximately unchanged. These are definitionally distinct.
+Existing clocks fail this desideratum: a compound that specifically demethylates
+the CpG sites a clock was trained on will reduce the clock reading regardless of
+whether $s(x)$ changes.
+
+\paragraph{Desideratum 3: Directional consistency.}
+A valid measure should consistently rank known age-accelerating exposures above
+baseline and known geroprotective interventions below, across independent datasets.
+
+This desideratum is empirically testable and we report results in
+Section~\ref{sec:results}. It is satisfied by construction for the calibration
+anchors; its empirical content lies in whether it generalises to novel interventions
+not used in the identification step.
+
+\paragraph{Desideratum 4: Monotonicity with health outcomes.}
+Position $s$ along $\gamma$ should be monotonically associated with all-cause
+mortality in held-out data.
+
+This desideratum connects the formal framework to the clinical literature and is the
+primary external validation criterion. It is not satisfied by construction and must
+be tested empirically. We report this test in Section~\ref{sec:results}.
+
+\subsection{Relationship to existing clocks}
+\label{sec:clockrelationship}
+
+The framework implies a precise criterion for clock validity: a clock $\hat{a}(x)$
+is a valid biological age measure to the extent that its output is a monotone
+function of arc-length position $s(x)$. Equivalently, the weight vector of a linear
+clock should be approximately parallel to $v^*$ in the weighted inner product.
+
+Clock disagreement --- the empirical phenomenon documented in the companion paper
+\cite{vinogradova2026desiderata} --- is reinterpreted under this framework as
+a measure of how far each clock's weight vector deviates from $v^*$. Clocks whose
+weights are more aligned with $v^*$ are better biological age measures; clocks whose
+weights have large orthogonal components are measuring tissue-specific, cohort-specific,
+or training-artefact variation rather than position on the aging trajectory.
+
+The causality-enriched clocks of Ying et al.\ \cite{ying2024} (DamAge and AdaptAge)
+select CpG sites with Mendelian randomization evidence for causal links to aging
+traits. Our framework predicts that these sites should be more closely aligned with
+$v^*$ than standard clock sites, since causal upstream sites are more likely to
+reflect genuine aging-direction variation than correlational ones. We test this
+prediction in Section~\ref{sec:results}.
+
+Regarding other molecular substrates: telomere length, proteomic age, and glycan
+age are used in our validation as independent evidence for the biological relevance
+of $s$, not as inputs to its construction. We note that concordance between
+independent imperfect proxies supports but does not validate any individual proxy;
+mortality prediction on held-out data is the appropriate validation criterion.

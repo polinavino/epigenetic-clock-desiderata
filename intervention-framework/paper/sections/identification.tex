@@ -1,0 +1,114 @@
+\section{Identification}
+\label{sec:identification}
+
+\subsection{The singular value test}
+\label{sec:svdtest}
+
+The aging direction $v^*$ is well-defined only if the calibration interventions
+agree on a common direction in methylation space. If accelerating and geroprotective
+interventions push methylation in unrelated directions across contexts, the
+optimisation in Equation~\eqref{eq:agingdir} has no stable solution and the
+one-dimensional trajectory assumption fails.
+
+We assess this empirically via the singular value decomposition of $A$. Let
+$\lambda_1 \geq \lambda_2 \geq \cdots$ denote the singular values of $A$. The
+first singular value $\lambda_1$ measures the total signed agreement across all
+intervention-context pairs in the direction of $v^*$. The ratio
+\begin{equation}
+  \rho = \frac{\lambda_1}{\lambda_2}
+  \label{eq:svdratio}
+\end{equation}
+is the primary test statistic for one-dimensionality. A large ratio ($\rho \gg 1$)
+indicates that the aging signal is well-approximated by a single direction and the
+trajectory assumption is justified. A ratio near 1 indicates that two or more
+directions capture comparable amounts of signed agreement, implying that aging is
+not one-dimensional in methylation space and $\gamma$ should be generalised to a
+surface or higher-dimensional manifold.
+
+In the latter case, $s(x)$ becomes a vector rather than a scalar and the
+classification definitions in Section~\ref{sec:classification} require modification.
+We report the full eigenvalue spectrum in Section~\ref{sec:results} and discuss the
+dimensionality finding there. We note that a failed one-dimensionality test is not
+a failure of the framework; it is a substantive empirical finding about the geometry
+of the aging process.
+
+\subsection{The circularity residue}
+\label{sec:circularity}
+
+The framework breaks the circularity between clocks and interventions identified
+in Section~\ref{sec:related}: the aging direction $v^*$ is defined by calibration
+anchors grounded in health outcome evidence, not by clock output. However, it does
+not eliminate circularity entirely. A residual circularity remains: the calibration
+anchors in $\mathcal{I}^+$ and $\mathcal{I}^-$ are labeled based on their
+association with mortality and healthspan, and biological age is ultimately anchored
+to the same outcomes.
+
+We argue this residual circularity is unavoidable and appropriate. Any definition
+of biological age that has no connection to health outcomes would be biologically
+uninteresting: the concept is motivated by the observation that individuals of the
+same chronological age differ in their proximity to death and disease. The question
+is not whether to anchor biological age to health outcomes, but whether to do so
+explicitly and directly or implicitly through a clock training procedure. Our
+framework does the former.
+
+What is eliminated is clock-dependence. The aging direction $v^*$ does not depend
+on which clocks exist, how they were trained, or which CpG sites they use. Two
+researchers using different clocks but the same calibration anchors and the same
+cross-context identification criterion will obtain the same $v^*$ up to sampling
+variability. This is a stronger guarantee than the existing literature provides.
+
+\subsection{Local versus global coherence}
+\label{sec:coherence}
+
+The aging direction $v^*(x)$ is defined locally --- it can in principle vary across
+the methylation manifold. For the integral curve $\gamma$ to be globally coherent,
+$v^*$ must not rotate substantially between the methylation states characteristic
+of young individuals and those characteristic of old individuals.
+
+We test this directly by stratifying the calibration intervention datasets by
+baseline age of participants. Let $v^*_{\text{young}}$ denote the aging direction
+estimated from interventions applied to participants in the lowest chronological
+age tertile, and $v^*_{\text{old}}$ the direction from the highest tertile. The
+angle between them,
+\begin{equation}
+  \theta = \arccos\!\left(
+    \frac{\langle v^*_{\text{young}},\, v^*_{\text{old}} \rangle_c}
+         {|v^*_{\text{young}}|_c \cdot |v^*_{\text{old}}|_c}
+  \right)
+  \label{eq:curvature}
+\end{equation}
+measures the curvature of the trajectory between young and old methylation states.
+A small $\theta$ supports the use of a single globally estimated $v^*$; a large
+$\theta$ indicates that the aging direction rotates substantially with age and that
+a locally varying vector field is required.
+
+We report $\theta$ in Section~\ref{sec:results}. Regardless of the outcome, the
+principal curve estimator in Section~\ref{sec:trajectory} accommodates local
+variation by construction: it follows the data rather than a fixed linear direction.
+The curvature test therefore bears primarily on the interpretability of $v^*$ as a
+single global direction rather than on the validity of the trajectory estimate.
+
+\subsection{Geometry of the state space}
+\label{sec:geometry}
+
+The weighted inner product in Equation~\eqref{eq:inner} provides a Euclidean
+approximation to the geometry of $\mathcal{M}$. This approximation is reasonable
+for CpG sites with beta values in the interior of $[0,1]$, where small displacements
+are approximately linear. It breaks down near the boundaries: a site with mean
+beta value $0.02$ cannot decrease by more than $0.02$, so variance-normalised
+displacements at such sites are not comparable to those at interior sites.
+
+We address this in the empirical analysis by excluding CpG sites with mean beta
+below $0.05$ or above $0.95$ in the control samples of any context. A more principled
+treatment would replace the Euclidean geometry with a Riemannian metric appropriate
+for the beta distribution, such as the Fisher information metric on the simplex or
+the arc-sine transformation. We note this as a natural refinement and leave the
+Riemannian extension for future work.
+
+A separate geometric question is whether the methylation manifold is well-approximated
+by a smooth submanifold at all, or whether it has a more complex topology (branching,
+holes, or disconnected components corresponding to different cell types). Cell-type
+heterogeneity in bulk methylation samples is a known confounder, and we address it
+in the empirical pipeline via standard cell-type deconvolution before computing
+displacements. After deconvolution, the residual manifold structure is expected to
+be smooth enough for the principal curve estimator to apply reliably.

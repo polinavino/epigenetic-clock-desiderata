@@ -37,12 +37,27 @@ from config_intervention import (
 
 
 def load_h5_beta(path):
-    """Load beta matrix from HDF5, return (DataFrame samples x CpGs)."""
+    """
+    Load beta matrix from HDF5, return DataFrame (samples x CpGs).
+
+    Handles two formats:
+      - Our format: datasets 'beta', 'sample_ids', 'cpg_ids' (samples x CpGs)
+      - Parent repo format: pandas HDF5 with key 'beta' (CpGs x samples)
+    """
     with h5py.File(path, 'r') as f:
-        sample_ids = [s.decode() for s in f['sample_ids'][:]]
-        cpg_ids    = [c.decode() for c in f['cpg_ids'][:]]
-        beta       = f['beta'][:]
-    return pd.DataFrame(beta, index=sample_ids, columns=cpg_ids)
+        keys = list(f.keys())
+        has_our_format = 'sample_ids' in keys and 'cpg_ids' in keys
+
+    if has_our_format:
+        with h5py.File(path, 'r') as f:
+            sample_ids = [s.decode() for s in f['sample_ids'][:]]
+            cpg_ids    = [c.decode() for c in f['cpg_ids'][:]]
+            beta       = f['beta'][:]
+        return pd.DataFrame(beta, index=sample_ids, columns=cpg_ids)
+    else:
+        # Parent repo pandas HDF5: CpGs x samples -> transpose to samples x CpGs
+        df = pd.read_hdf(path, key='beta')
+        return df.T
 
 
 def compute_baseline_std(common_cpgs):
