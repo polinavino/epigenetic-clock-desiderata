@@ -135,10 +135,21 @@ empty of beta values.
 
 ### Currently usable (public beta matrices)
 
+All blood, on 450K or EPIC — directly comparable to the cross-sectional anchors.
+The three EPIC datasets were added via a systematic FTP-verified GEO sweep
+(see `CANDIDATE_DATASETS.md`); processed by `scripts/process_new_interventions.py`.
+
 | Dataset | Intervention | Direction | Design | n |
 |---------|-------------|-----------|--------|---|
 | GSE50660 | Smoking (blood) | accelerating | cross-sectional | 22 current vs 179 never |
+| GSE140038 | Chemo + radiotherapy (blood) | accelerating | post vs pre, unpaired | 72 pre / 72 post |
 | GSE272137 | Bariatric weight loss (blood) | geroprotective | longitudinal (w0 vs w52) | 26 paired |
+| GSE240184 | Behavioural weight loss, DRIFT2 (blood) | geroprotective | longitudinal (BL vs 3m) | 64 paired |
+| GSE328810 | 8-week combined exercise (blood) | geroprotective | longitudinal (Before/After) | 13 paired |
+
+This is **5 interventions spanning both directions** (2 accelerating,
+3 geroprotective) — at the lower end of the 4–6 needed for a first genuine v*.
+Balance is still skewed geroprotective; more accelerators remain valuable.
 
 ### Requested from authors / pending access
 
@@ -147,15 +158,35 @@ empty of beta values.
 | CALERIE (Aging Research Biobank; Belsky) | Caloric restriction | geroprotective | access application + direct request |
 | Fiorito (DAMA study) | Diet + physical activity RCT | geroprotective | requested |
 | Janelsins (Yao et al. 2019) | Chemotherapy (450k, n=93) | accelerating | requested |
-| Sehl (GSE133588) | Chemotherapy (EPIC, n=48) | accelerating | requested (GEO suppl lacks beta values) |
+| Sehl (GSE133588) | Chemotherapy (EPIC, n=48) | accelerating | requested |
 | Rönn | Exercise (adipose) | geroprotective | requested |
 | Lindholm | Exercise (muscle) | geroprotective | declined — full beta matrix no longer available; DMP list usable for validation |
 
 CALERIE is the highest priority: it is the central motivating dataset for the framework.
 
+### Checked and rejected (do not re-pursue as methylation interventions)
+
+- **GSE133588** — *not methylation.* Its supplementary `log2_norm.txt.gz` is
+  Agilent **gene-expression** data (control probes `GE_BrightCorner`/`DarkCorner`,
+  `CUST_*`), ~10 samples. Sehl's chemo methylation data is elsewhere / controlled.
+- **GSE77716** — has a real ~2500-sample 450K beta matrix on FTP, but **no smoking
+  phenotype** in the public metadata (only sex, cell fractions, ethnicity), so it
+  cannot be used as a smoking intervention without labels from the authors.
+
+See `CANDIDATE_DATASETS.md` for the full FTP-verified candidate list and backups.
+
 ---
 
-## 6. Preliminary findings (two datasets)
+## 6. Preliminary findings
+
+> **Update (5 interventions).** The pipeline now runs on five blood interventions
+> spanning both directions (smoking, chemo/radiotherapy, bariatric WL, behavioural
+> WL, exercise). The two-dataset findings below (6a–6d) still hold; the five-dataset
+> result is summarised in 6e and in full in [`results/FINDINGS_5datasets.md`](results/FINDINGS_5datasets.md).
+> Headline: ρ = λ₁/λ₂ = **1.30** — still no dominant shared aging axis; the
+> interventions are nearly mutually orthogonal.
+
+### Two-dataset baseline (smoking + bariatric weight loss)
 
 With only smoking and bariatric weight loss available, results are necessarily preliminary, but
 they are coherent and point somewhere specific.
@@ -195,16 +226,41 @@ weak aging-CpG enrichment (1.2×). Over 52 weeks it does not appear to move cell
 along the chronological-age trajectory, consistent with the literature's mixed findings on whether
 weight loss reverses epigenetic age versus changing metabolic CpGs.
 
+### 6e. Five interventions: orthogonality reinforced, still no robust v*
+
+Over the 41,626 CpGs shared by all five interventions, the displacement vectors are **nearly
+mutually orthogonal** (pairwise angles cluster around 90°), and the signed SVD spectrum is flat
+(ρ = λ₁/λ₂ = **1.30**, vs 1.65 with two vectors). Going from 2 → 5 interventions did *not*
+concentrate the signal onto one axis. Two specifics stand out:
+
+- **The two accelerators disagree.** Smoking and chemo/radiotherapy are **114.6° apart** — opposite
+  half-spaces, despite both being "age-accelerating." There is no common acceleration direction.
+- **Forcing a provisional v\* misclassifies smoking and exercise.** v\* ends up defined by the
+  chemo + weight-loss axis; smoking projects *anti*-aligned (cos = −0.72) and exercise weakly
+  positive (cos = +0.20). The smoking off-axis effect is now sharper than against the age curve
+  (−0.72 vs −0.34) — the strongest statement yet of the clock-gaming geometry.
+
+This reinforces, rather than overturns, the two-dataset picture: the framework's job here is to
+*quantify the absence* of a shared axis. Whether that absence is substantive (interventions truly
+act on different axes) or methodological (cell-composition / platform structure dominating) is the
+open question the cross-tissue and cell-adjusted analyses are meant to resolve. See
+[`results/FINDINGS_5datasets.md`](results/FINDINGS_5datasets.md).
+
 ---
 
 ## 7. Important caveats
 
-- **Two interventions cannot define an axis.** Every directional conclusion is provisional until
-  more interventions are added. The orthogonality finding is robust; the v*-based classification is
-  not yet meaningful.
-- **The reference here is the chronological-age curve, not v*.** Statements like "smoking is
-  orthogonal to aging" currently mean orthogonal to the age-correlation curve, a weaker claim than
-  orthogonal to a validated aging direction.
+- **Five interventions still do not define a robust axis.** ρ = 1.30 means v* is provisional, not
+  validated; the orthogonality finding is robust but the v*-based classification (which flips
+  smoking and exercise) should be read as "these interventions don't share an axis," not as a
+  trustworthy per-intervention label. More interventions — and cell-composition adjustment — are
+  needed before v* is meaningful.
+- **Cell composition is an unaddressed confound.** All five are whole blood; intervention-induced
+  shifts in leukocyte fractions can dominate the displacement and masquerade as (or bury) a shared
+  aging axis. GSE328810 is cell-corrected; the others are not. Harmonising this is a priority.
+- **The reference for the age-curve statements is the chronological-age curve, not v*.** Statements
+  like "smoking is orthogonal to aging" against the age curve are a weaker claim than orthogonality
+  to a validated aging direction; the v* projections in 6e are against the provisional v*.
 - **The negative sign on smoking (−0.34)** could be a real phenomenon (smoking hypomethylation
   opposing age-related hypermethylation at shared sites) or an artefact of the small shared-CpG
   set (156). These cannot yet be distinguished.

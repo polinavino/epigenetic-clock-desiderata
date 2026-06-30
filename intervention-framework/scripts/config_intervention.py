@@ -127,6 +127,81 @@ INTERVENTION_DATASETS = {
         "r_meta":  str(INTERV_DIR / "GSE56867_geo_metadata.csv"),
     },
 
+    # ── I_MINUS: exercise (blood) ─────────────────────────────────────────────
+    # GSE328810 — 8-week combined physical exercise, women with obesity, whole
+    # blood, EPIC. Paired Before/After. Public cell-corrected beta matrix.
+    # Processed by process_new_interventions.py
+    "GSE328810": {
+        "label":   "exercise_blood",
+        "sign":    "minus",
+        "tissue":  "blood",
+        "design":  "longitudinal",
+        "source":  "processed_direct",
+    },
+
+    # ── I_MINUS: behavioural weight loss (blood) ──────────────────────────────
+    # GSE240184 — DRIFT2 trial, adults with obesity, whole blood, EPIC, n=128.
+    # Paired baseline (BL) vs 3-month (T3M). Public beta matrix (betasGEO).
+    # Processed by process_new_interventions.py
+    "GSE240184": {
+        "label":   "behavioural_weight_loss",
+        "sign":    "minus",
+        "tissue":  "blood",
+        "design":  "longitudinal",
+        "source":  "processed_direct",
+    },
+
+    # ── I_PLUS: chemotherapy + radiotherapy (blood) ───────────────────────────
+    # GSE140038 — acute effects of chemo/radiotherapy on peripheral blood
+    # epigenetic age, early-stage breast cancer, whole blood, EPIC, n=144.
+    # Time point 0 (baseline) vs 1 (post-treatment). No subject IDs in public
+    # metadata and timepoints not interleaved -> treated as unpaired group means
+    # (post vs pre), still within-study so batch effects cancel. noob betas.
+    # Processed by process_new_interventions.py
+    "GSE140038": {
+        "label":   "chemo_radiotherapy_blood",
+        "sign":    "plus",
+        "tissue":  "blood",
+        "design":  "cross_sectional",
+        "source":  "processed_direct",
+    },
+
+    # ── I_PLUS: chronic stress / PTSD (blood) — non-treatment accelerator ──────
+    # GSE89218 — PTSD vs trauma-exposed controls, OIF/OEF veterans, whole blood,
+    # 450K, n=163. Cross-sectional case (PTSD+) vs control (PTSD-). Tests whether
+    # the smoking/chemo orthogonality is treatment-specific (chemo is cytotoxic);
+    # PTSD is a non-treatment exposure. Processed by process_new_interventions.py
+    "GSE89218": {
+        "label":   "ptsd_stress_blood",
+        "sign":    "plus",
+        "tissue":  "blood",
+        "design":  "cross_sectional",
+        "source":  "processed_direct",
+    },
+
+    # ── I_PLUS: smoking (PBMC) — reproducibility control for GSE50660 ──────────
+    # GSE53045 — smokers vs controls, PBMC, 450K, n=111 (50 smoker / 61 control).
+    # Independent smoking cohort: does a second smoking dataset point the same way?
+    "GSE53045": {
+        "label":   "smoking_pbmc",
+        "sign":    "plus",
+        "tissue":  "blood",
+        "design":  "cross_sectional",
+        "source":  "processed_direct",
+    },
+
+    # ── I_MINUS: exercise in children — reproducibility control for GSE328810 ──
+    # GSE193730 — 20-wk exercise, children w/ overweight/obesity, whole blood,
+    # EPIC, 23 subjects x 2 timepoints. Exercise (E_) group paired Baseline/T1.
+    # (Control C_ arm present but excluded; displacement = E group post-pre.)
+    "GSE193730": {
+        "label":   "exercise_children",
+        "sign":    "minus",
+        "tissue":  "blood",
+        "design":  "longitudinal",
+        "source":  "processed_direct",
+    },
+
     # ── I_MINUS: caloric restriction (CALERIE) ────────────────────────────────
     # Belsky/Ryan et al. — EPIC array, blood+muscle+adipose, 3 timepoints
     # Data available from Aging Research Biobank (controlled access)
