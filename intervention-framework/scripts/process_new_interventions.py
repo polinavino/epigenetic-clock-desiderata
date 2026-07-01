@@ -39,6 +39,26 @@ def load_common_cpgs():
 COMMON = load_common_cpgs()
 
 
+def read_beta_lean(path, sep='\t', comment=None, drop_prefixes=('Detection',)):
+    """Memory-lean read of a GEO beta matrix (CpGs x samples).
+
+    Skips detection-pvalue columns at parse time and uses float32, then keeps
+    only common CpGs before returning. Returns a CpGs x samples DataFrame.
+    Needed because this machine is memory-constrained; loading the full matrix
+    as float64 with detection columns swaps to death.
+    """
+    header = pd.read_csv(path, sep=sep, comment=comment, nrows=0)
+    idx_col = header.columns[0]
+    beta_cols = [c for c in header.columns[1:]
+                 if not any(str(c).startswith(p) for p in drop_prefixes)]
+    usecols = [idx_col] + beta_cols
+    df = pd.read_csv(path, sep=sep, comment=comment, index_col=0,
+                     usecols=usecols, dtype={c: np.float32 for c in beta_cols},
+                     low_memory=True)
+    df = df.loc[df.index.isin(COMMON)]     # shrink to common CpGs early
+    return df
+
+
 def qc_and_save(beta_df, meta_df, accession):
     """
     beta_df: samples x CpGs DataFrame. meta_df: must contain 'sample_id'.
@@ -178,12 +198,96 @@ def process_gse140038():
     qc_and_save(beta_df, meta_df, "GSE140038")
 
 
+def _series_field(acc, field_substr, value_re=None):
+    """Return list of characteristic values (in sample order) for a series matrix
+    line whose content contains field_substr. value_re strips the prefix."""
+    import re as _re
+    sm = RAW_DIR / f"{acc}_series_matrix.txt.gz"
+    with gzip.open(sm, 'rt') as f:
+        for line in f:
+            if line.startswith('!Sample') and field_substr in line:
+                vals = [x.strip().strip('"') for x in line.rstrip('\n').split('\t')[1:]]
+                return vals
+    return None
+
+
+# ── GSE89218: PTSD, cross-sectional; beta cols = numeric IDs, title encodes dx ──
+def process_gse89218():
+    print("Processing GSE89218 (ptsd_stress_blood) ...")
+    titles = _series_field("GSE89218", "!Sample_title")
+    # title like "201227-negative_bisulfite" -> {id: pos/neg}
+    id2grp = {}
+    for t in titles:
+        sid = t.split('-')[0].strip()
+        grp = 'case' if 'positive' in t else ('control' if 'negative' in t else None)
+        if grp:
+            id2grp[sid] = grp
+    raw = RAW_DIR / "GSE89218_Meth_163_matrix_processed.txt.gz"
+    df = read_beta_lean(raw, sep='\t', drop_prefixes=('Detection',))
+    beta_df = df.T
+    rows = [{'sample_id': s, 'group': id2grp[str(s)]}
+            for s in beta_df.index if str(s) in id2grp]
+    meta_df = pd.DataFrame(rows)
+    print(f"  parsed groups {meta_df['group'].value_counts().to_dict()}")
+    qc_and_save(beta_df, meta_df, "GSE89218")
+
+
+# ── GSE53045: smoking PBMC, cross-sectional; beta cols = GSM, '#' comment header ─
+def process_gse53045():
+    print("Processing GSE53045 (smoking_pbmc) ...")
+    gsms = _series_field("GSE53045", "!Sample_geo_accession")
+    states = _series_field("GSE53045", "disease state")
+    gsm2grp = {}
+    for g, s in zip(gsms, states):
+        grp = 'case' if 'Smoker' in s else ('control' if 'Control' in s else None)
+        if grp:
+            gsm2grp[g] = grp
+    raw = RAW_DIR / "GSE53045_matrix_processed_GEO.txt.gz"
+    df = read_beta_lean(raw, sep='\t', comment='#', drop_prefixes=('Detection',))
+    beta_df = df.T
+    rows = [{'sample_id': s, 'group': gsm2grp[str(s)]}
+            for s in beta_df.index if str(s) in gsm2grp]
+    meta_df = pd.DataFrame(rows)
+    print(f"  parsed groups {meta_df['group'].value_counts().to_dict()}")
+    qc_and_save(beta_df, meta_df, "GSE53045")
+
+
+# ── GSE193730: exercise children, longitudinal; semicolon + European decimals ──
+def process_gse193730():
+    print("Processing GSE193730 (exercise_children) ...")
+    titles = _series_field("GSE193730", "!Sample_title")
+    tps = _series_field("GSE193730", "time point")
+    title2tp = {}
+    for t, tp in zip(titles, tps):
+        title2tp[t] = 'pre' if 'Baseline' in tp else 'post'  # T1 -> post
+    raw = RAW_DIR / "GSE193730_BETA_VALUES_ACTIVEBRAIN.csv.gz"
+    df = pd.read_csv(raw, sep=';', decimal=',', index_col=0, low_memory=False)
+    df.columns = [c.strip().strip('"') for c in df.columns]
+    beta_df = df.T
+    rows = []
+    for s in beta_df.index:
+        # title like E_80_H1 ; keep only Exercise (E_) arm
+        if not s.startswith('E_'):
+            continue
+        tp = title2tp.get(s)
+        if tp is None:
+            continue
+        subj = s.rsplit('_', 1)[0]   # E_80_H1 -> E_80
+        rows.append({'sample_id': s, 'subject_id': subj, 'timepoint': tp})
+    meta_df = pd.DataFrame(rows)
+    print(f"  exercise-arm timepoints {meta_df['timepoint'].value_counts().to_dict()}")
+    qc_and_save(beta_df, meta_df, "GSE193730")
+
+
 if __name__ == "__main__":
     targets = sys.argv[1:] or ["GSE328810", "GSE240184", "GSE140038"]
     fns = {
         "GSE328810": process_gse328810,
         "GSE240184": process_gse240184,
         "GSE140038": process_gse140038,
+        "GSE89218": process_gse89218,
+        "GSE53045": process_gse53045,
+        "GSE193730": process_gse193730,
     }
     for t in targets:
         fns[t]()

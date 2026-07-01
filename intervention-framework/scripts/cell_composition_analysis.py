@@ -37,7 +37,8 @@ from config_intervention import INTERVENTION_DATASETS, interv_beta_path, interv_
 SCRIPT_DIR = Path(__file__).resolve().parent
 INTERV_DIR = SCRIPT_DIR.parent.parent / "data" / "interventions"
 REF_CSV = SCRIPT_DIR / "centDHSbloodDMC_ref.csv"
-BLOOD = ["GSE50660", "GSE272137", "GSE328810", "GSE240184", "GSE140038"]
+BLOOD = ["GSE50660", "GSE272137", "GSE328810", "GSE240184", "GSE140038",
+         "GSE89218", "GSE53045", "GSE193730"]
 
 
 def load_h5(path):
@@ -123,6 +124,9 @@ def main():
         print(s); out.append(s)
 
     for acc in BLOOD:
+        if not interv_beta_path(acc).exists():
+            print(f"  {acc}: beta h5 not found yet, skipping")
+            continue
         cfg = INTERVENTION_DATASETS[acc]
         beta = load_h5(interv_beta_path(acc))
         meta = pd.read_csv(interv_meta_path(acc))

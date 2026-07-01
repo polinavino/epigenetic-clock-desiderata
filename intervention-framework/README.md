@@ -142,14 +142,17 @@ The three EPIC datasets were added via a systematic FTP-verified GEO sweep
 | Dataset | Intervention | Direction | Design | n |
 |---------|-------------|-----------|--------|---|
 | GSE50660 | Smoking (blood) | accelerating | cross-sectional | 22 current vs 179 never |
+| GSE53045 | Smoking (PBMC) | accelerating | cross-sectional | 50 smoker vs 61 control |
 | GSE140038 | Chemo + radiotherapy (blood) | accelerating | post vs pre, unpaired | 72 pre / 72 post |
+| GSE89218 | Chronic stress / PTSD (blood) | accelerating | cross-sectional | 81 PTSD+ vs 82 PTSD− |
 | GSE272137 | Bariatric weight loss (blood) | geroprotective | longitudinal (w0 vs w52) | 26 paired |
 | GSE240184 | Behavioural weight loss, DRIFT2 (blood) | geroprotective | longitudinal (BL vs 3m) | 64 paired |
 | GSE328810 | 8-week combined exercise (blood) | geroprotective | longitudinal (Before/After) | 13 paired |
+| GSE193730 | Exercise, children 20 wk (blood) | geroprotective | longitudinal (Baseline/T1) | 10 paired (exercise arm) |
 
-This is **5 interventions spanning both directions** (2 accelerating,
-3 geroprotective) — at the lower end of the 4–6 needed for a first genuine v*.
-Balance is still skewed geroprotective; more accelerators remain valuable.
+This is **8 interventions, balanced 4 accelerating / 4 geroprotective** — past the
+4–6 needed for a first genuine v\*. The two smoking cohorts and two exercise
+cohorts also serve as within-direction reproducibility controls.
 
 ### Requested from authors / pending access
 
@@ -179,12 +182,27 @@ See `CANDIDATE_DATASETS.md` for the full FTP-verified candidate list and backups
 
 ## 6. Preliminary findings
 
-> **Update (5 interventions).** The pipeline now runs on five blood interventions
-> spanning both directions (smoking, chemo/radiotherapy, bariatric WL, behavioural
-> WL, exercise). The two-dataset findings below (6a–6d) still hold; the five-dataset
-> result is summarised in 6e and in full in [`results/FINDINGS_5datasets.md`](results/FINDINGS_5datasets.md).
-> Headline: ρ = λ₁/λ₂ = **1.30** — still no dominant shared aging axis; the
-> interventions are nearly mutually orthogonal.
+> **Update (8 interventions + cell control + GTEx cross-tissue).** The pipeline now
+> runs on eight blood interventions, balanced 4 accelerating (smoking ×2, chemo,
+> PTSD) / 4 geroprotective (bariatric WL, behavioural WL, exercise ×2), plus a
+> leukocyte-deconvolution control and a GTEx multi-tissue test. The two-dataset
+> findings below (6a–6d) still hold. Current results are canonical in
+> **[`results/FINDINGS.md`](results/FINDINGS.md)**. Headlines:
+> - Still **no dominant shared aging axis** (ρ = λ₁/λ₂ = 1.30 raw), and it is
+>   **not a cell-mix artifact** — orthogonality survives EpiDISH cell adjustment
+>   (ρ → 1.12, all pairwise angles 75–99°).
+> - **The four "accelerators" share no direction:** the non-treatment accelerator
+>   PTSD is ~90° from smoking and chemo, so the disagreement isn't a chemo/
+>   treatment artifact — accelerators occupy four different directions.
+> - **The two independent smoking cohorts agree** (79–83° apart, both anti-aligned
+>   to v\*) — reproducibility control showing the orthogonality is biological.
+> - **GTEx cross-tissue:** aging is itself largely tissue-specific (ρ = 1.25;
+>   exception: blood–lung age-directions 37° apart), and the intervention v\* is
+>   **anti-aligned with real blood aging (cos = −0.72)** — interventions move cells
+>   off, even against, the chronological-aging axis.
+> - **Retraction:** the earlier "smoking vs chemo = 114.6°, opposite accelerators"
+>   was largely a chemo cell-composition (lymphodepletion) artifact; adjusted they
+>   are 87° (orthogonal, not anti-parallel).
 
 ### Two-dataset baseline (smoking + bariatric weight loss)
 
@@ -226,25 +244,26 @@ weak aging-CpG enrichment (1.2×). Over 52 weeks it does not appear to move cell
 along the chronological-age trajectory, consistent with the literature's mixed findings on whether
 weight loss reverses epigenetic age versus changing metabolic CpGs.
 
-### 6e. Five interventions: orthogonality reinforced, still no robust v*
+### 6e. Six interventions + cell control: orthogonality is real, not cell mix
 
-Over the 41,626 CpGs shared by all five interventions, the displacement vectors are **nearly
-mutually orthogonal** (pairwise angles cluster around 90°), and the signed SVD spectrum is flat
-(ρ = λ₁/λ₂ = **1.30**, vs 1.65 with two vectors). Going from 2 → 5 interventions did *not*
-concentrate the signal onto one axis. Two specifics stand out:
+Over the ~41,600 CpGs shared by all six interventions, the displacement vectors are **nearly
+mutually orthogonal** and the signed SVD spectrum is flat (ρ = λ₁/λ₂ = **1.29** raw). The decisive
+test — is this just intervention-induced leukocyte-composition shifts? — is answered by EpiDISH
+deconvolution and within-dataset residualisation on the estimated fractions:
 
-- **The two accelerators disagree.** Smoking and chemo/radiotherapy are **114.6° apart** — opposite
-  half-spaces, despite both being "age-accelerating." There is no common acceleration direction.
-- **Forcing a provisional v\* misclassifies smoking and exercise.** v\* ends up defined by the
-  chemo + weight-loss axis; smoking projects *anti*-aligned (cos = −0.72) and exercise weakly
-  positive (cos = +0.20). The smoking off-axis effect is now sharper than against the age curve
-  (−0.72 vs −0.34) — the strongest statement yet of the clock-gaming geometry.
+- **Orthogonality survives cell adjustment**: ρ drops to **1.16** and every pairwise angle lands in
+  **77–99°**. So "no shared aging axis" is not a cell-mix artifact.
+- **But cell composition drove several raw vectors** — chemo most of all (cos(raw,adj) = 0.36; its
+  raw displacement was largely lymphodepletion), bariatric partly (0.57). The earlier dramatic
+  "smoking vs chemo 114.6°" was mostly that artifact; adjusted it is **88.7°**. *(Retracted.)*
+- **Smoking reproduces**: the two independent smoking cohorts (whole blood vs PBMC) are the
+  most-aligned pair raw (77.2°) and adjusted (82.2°) and project the same way onto v\* — evidence
+  the geometry reflects biology, not single-cohort noise.
+- **Forcing a provisional v\* still misclassifies both smoking cohorts (anti-aligned) and exercise
+  (perpendicular).** v\* is defined by the chemo + weight-loss axis; the mismatches *are* the
+  finding — these interventions don't share one axis.
 
-This reinforces, rather than overturns, the two-dataset picture: the framework's job here is to
-*quantify the absence* of a shared axis. Whether that absence is substantive (interventions truly
-act on different axes) or methodological (cell-composition / platform structure dominating) is the
-open question the cross-tissue and cell-adjusted analyses are meant to resolve. See
-[`results/FINDINGS_5datasets.md`](results/FINDINGS_5datasets.md).
+Full tables and caveats in **[`results/FINDINGS.md`](results/FINDINGS.md)**.
 
 ---
 

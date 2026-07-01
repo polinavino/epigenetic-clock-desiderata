@@ -173,6 +173,9 @@ def compute_displacement(accession, config):
 
     beta_df = load_h5_beta(beta_path)
     meta_df = pd.read_csv(meta_path)
+    # sample_id must be str to match the (string) h5 sample index; purely
+    # numeric IDs (e.g. GSE89218 "201227") would otherwise be read as int.
+    meta_df['sample_id'] = meta_df['sample_id'].astype(str)
 
     if config['design'] == 'cross_sectional':
         delta = displacement_cross_sectional(beta_df, meta_df, accession)
