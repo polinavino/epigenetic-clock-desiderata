@@ -200,6 +200,13 @@ See `CANDIDATE_DATASETS.md` for the full FTP-verified candidate list and backups
 >   exception: blood–lung age-directions 37° apart), and the intervention v\* is
 >   **anti-aligned with real blood aging (cos = −0.72)** — interventions move cells
 >   off, even against, the chronological-aging axis.
+> - **External-axis classification (GTEx blood aging as reference):** re-anchoring
+>   the classification on real aging instead of the internal v\* **fixes smoking**
+>   (both cohorts correctly accelerating, +0.32/+0.53), while **all four
+>   geroprotectors read as off-axis** (cos 0.07–0.28) — they change methylation
+>   without moving back along the aging axis (the CALERIE puzzle, made geometric).
+>   Two placebo controls pass (tissue-specificity holds on random CpGs; a random
+>   axis does not separate the groups).
 > - **Retraction:** the earlier "smoking vs chemo = 114.6°, opposite accelerators"
 >   was largely a chemo cell-composition (lymphodepletion) artifact; adjusted they
 >   are 87° (orthogonal, not anti-parallel).
@@ -244,24 +251,41 @@ weak aging-CpG enrichment (1.2×). Over 52 weeks it does not appear to move cell
 along the chronological-age trajectory, consistent with the literature's mixed findings on whether
 weight loss reverses epigenetic age versus changing metabolic CpGs.
 
-### 6e. Six interventions + cell control: orthogonality is real, not cell mix
+### 6e. Eight interventions + cell control: orthogonality is real, not cell mix
 
-Over the ~41,600 CpGs shared by all six interventions, the displacement vectors are **nearly
-mutually orthogonal** and the signed SVD spectrum is flat (ρ = λ₁/λ₂ = **1.29** raw). The decisive
+Over the ~30,200 CpGs shared by all eight interventions, the displacement vectors are **nearly
+mutually orthogonal** and the signed SVD spectrum is flat (ρ = λ₁/λ₂ = **1.30** raw). The decisive
 test — is this just intervention-induced leukocyte-composition shifts? — is answered by EpiDISH
 deconvolution and within-dataset residualisation on the estimated fractions:
 
-- **Orthogonality survives cell adjustment**: ρ drops to **1.16** and every pairwise angle lands in
-  **77–99°**. So "no shared aging axis" is not a cell-mix artifact.
+- **Orthogonality survives cell adjustment**: ρ drops to **1.12** and every pairwise angle lands in
+  **75–99°**. So "no shared aging axis" is not a cell-mix artifact.
 - **But cell composition drove several raw vectors** — chemo most of all (cos(raw,adj) = 0.36; its
   raw displacement was largely lymphodepletion), bariatric partly (0.57). The earlier dramatic
-  "smoking vs chemo 114.6°" was mostly that artifact; adjusted it is **88.7°**. *(Retracted.)*
+  "smoking vs chemo 114.6°" was mostly that artifact; adjusted it is **87°**. *(Retracted.)*
+- **Accelerators share no direction**: the non-treatment accelerator PTSD is ~90° from smoking *and*
+  chemo, so the disagreement is not a treatment/cytotoxicity artifact.
 - **Smoking reproduces**: the two independent smoking cohorts (whole blood vs PBMC) are the
-  most-aligned pair raw (77.2°) and adjusted (82.2°) and project the same way onto v\* — evidence
-  the geometry reflects biology, not single-cohort noise.
-- **Forcing a provisional v\* still misclassifies both smoking cohorts (anti-aligned) and exercise
-  (perpendicular).** v\* is defined by the chemo + weight-loss axis; the mismatches *are* the
-  finding — these interventions don't share one axis.
+  most-aligned pair raw (78.6°) and adjusted (82.8°) — evidence the geometry reflects biology.
+
+### 6f. GTEx cross-tissue + external aging axis: interventions move off the aging axis
+
+Using GTEx multi-tissue methylation (GSE213478, 9 tissues, 987 samples) with the GEO-provided age
+brackets, streamed locally to just the CpGs we need:
+
+- **Aging is itself largely tissue-specific** (per-tissue age-directions ρ = 1.25; the exception is
+  a blood–lung cluster ~38° apart). This is a general property, not a v\*-selection artifact — random
+  CpGs give ρ = 1.61 / blood–lung 55°.
+- **Re-classifying against the external GTEx blood-aging axis** (instead of the circular internal v\*,
+  which is itself anti-aligned with real aging, cos −0.72) **fixes smoking** — both cohorts read
+  correctly as accelerating (+0.32, +0.53) — while **all four geroprotectors read as off-axis**
+  (cos 0.07–0.28): they change methylation without moving back along the aging axis. Chemo reads
+  paradoxically anti-aging (−0.33; its lymphodepletion signature). A random-CpG null axis separates
+  nothing (accelerators +0.10 vs geroprotectors +0.11), so the separation is real.
+
+This is the framework's thesis demonstrated against an external, clock-free reference: "intervention"
+effects and the chronological-aging axis are largely orthogonal — the geometric form of the CALERIE
+puzzle.
 
 Full tables and caveats in **[`results/FINDINGS.md`](results/FINDINGS.md)**.
 
@@ -269,17 +293,18 @@ Full tables and caveats in **[`results/FINDINGS.md`](results/FINDINGS.md)**.
 
 ## 7. Important caveats
 
-- **Five interventions still do not define a robust axis.** ρ = 1.30 means v* is provisional, not
-  validated; the orthogonality finding is robust but the v*-based classification (which flips
-  smoking and exercise) should be read as "these interventions don't share an axis," not as a
-  trustworthy per-intervention label. More interventions — and cell-composition adjustment — are
-  needed before v* is meaningful.
-- **Cell composition is an unaddressed confound.** All five are whole blood; intervention-induced
-  shifts in leukocyte fractions can dominate the displacement and masquerade as (or bury) a shared
-  aging axis. GSE328810 is cell-corrected; the others are not. Harmonising this is a priority.
-- **The reference for the age-curve statements is the chronological-age curve, not v*.** Statements
-  like "smoking is orthogonal to aging" against the age curve are a weaker claim than orthogonality
-  to a validated aging direction; the v* projections in 6e are against the provisional v*.
+- **Eight interventions still do not define a robust internal axis.** ρ = 1.30 (raw) / 1.12
+  (cell-adjusted) means the internal v* is not a validated aging direction; the *orthogonality*
+  finding is the robust result. Per-intervention classification should be read against the
+  **external** GTEx blood-aging axis (§6f), not the internal v* — the latter is anti-aligned with
+  real aging and mislabels smoking.
+- **Cell composition is addressed but partial.** EpiDISH adjustment shows the orthogonality is not a
+  leukocyte-mix artifact (ρ 1.30 → 1.12), but chemo and bariatric raw vectors were substantially
+  cell-driven (cos(raw,adj) 0.36 / 0.57). GSE328810's public matrix was already cell-corrected, so
+  its EpiDISH fractions rest on few reference CpGs (46/333) and are unreliable.
+- **The GTEx external-axis test uses bracketed age** (10-year bins) and a v*/intervention-relevant
+  CpG panel; the placebo on random CpGs supports it but an unbiased genome-wide age direction (the
+  32 GB GCP job) would be the strongest version.
 - **The negative sign on smoking (−0.34)** could be a real phenomenon (smoking hypomethylation
   opposing age-related hypermethylation at shared sites) or an artefact of the small shared-CpG
   set (156). These cannot yet be distinguished.
