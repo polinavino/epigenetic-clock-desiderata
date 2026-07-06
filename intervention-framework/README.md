@@ -143,6 +143,7 @@ The three EPIC datasets were added via a systematic FTP-verified GEO sweep
 |---------|-------------|-----------|--------|---|
 | GSE50660 | Smoking (blood) | accelerating | cross-sectional | 22 current vs 179 never |
 | GSE53045 | Smoking (PBMC) | accelerating | cross-sectional | 50 smoker vs 61 control |
+| GSE42861 | Smoking (blood, RA cohort) | accelerating | cross-sectional | 200 current vs 193 never |
 | GSE140038 | Chemo + radiotherapy (blood) | accelerating | post vs pre, unpaired | 72 pre / 72 post |
 | GSE89218 | Chronic stress / PTSD (blood) | accelerating | cross-sectional | 81 PTSD+ vs 82 PTSD− |
 | GSE272137 | Bariatric weight loss (blood) | geroprotective | longitudinal (w0 vs w52) | 26 paired |
@@ -150,7 +151,7 @@ The three EPIC datasets were added via a systematic FTP-verified GEO sweep
 | GSE328810 | 8-week combined exercise (blood) | geroprotective | longitudinal (Before/After) | 13 paired |
 | GSE193730 | Exercise, children 20 wk (blood) | geroprotective | longitudinal (Baseline/T1) | 10 paired (exercise arm) |
 
-This is **8 interventions, balanced 4 accelerating / 4 geroprotective** — past the
+This is **9 interventions, 5 accelerating / 4 geroprotective** (3 independent smoking cohorts) — past the
 4–6 needed for a first genuine v\*. The two smoking cohorts and two exercise
 cohorts also serve as within-direction reproducibility controls.
 
@@ -182,9 +183,9 @@ See `CANDIDATE_DATASETS.md` for the full FTP-verified candidate list and backups
 
 ## 6. Preliminary findings
 
-> **Update (8 interventions + cell control + GTEx cross-tissue).** The pipeline now
-> runs on eight blood interventions, balanced 4 accelerating (smoking ×2, chemo,
-> PTSD) / 4 geroprotective (bariatric WL, behavioural WL, exercise ×2), plus a
+> **Update (9 interventions + cell control + GTEx cross-tissue).** The pipeline now
+> runs on nine blood interventions, 5 accelerating (smoking ×3, chemo, PTSD) /
+> 4 geroprotective (bariatric WL, behavioural WL, exercise ×2), plus a
 > leukocyte-deconvolution control and a GTEx multi-tissue test. The two-dataset
 > findings below (6a–6d) still hold. Current results are canonical in
 > **[`results/FINDINGS.md`](results/FINDINGS.md)**. Headlines:
@@ -194,8 +195,11 @@ See `CANDIDATE_DATASETS.md` for the full FTP-verified candidate list and backups
 > - **The four "accelerators" share no direction:** the non-treatment accelerator
 >   PTSD is ~90° from smoking and chemo, so the disagreement isn't a chemo/
 >   treatment artifact — accelerators occupy four different directions.
-> - **The two independent smoking cohorts agree** (79–83° apart, both anti-aligned
->   to v\*) — reproducibility control showing the orthogonality is biological.
+> - **Smoking cohorts agree on the top CpG, less on the full vector.** AHRR
+>   (cg05575921) is the #1 most-hypomethylated CpG in all three smoking cohorts, but
+>   their full displacement vectors are only weakly aligned (78.6°–95.8°); the
+>   RA-confounded cohort (GSE42861) rotates ~90° off the two clean ones. Agreement on
+>   one biomarker ≠ agreement on direction — the biomarker-level version of the thesis.
 > - **GTEx cross-tissue:** aging is itself largely tissue-specific (ρ = 1.25;
 >   exception: blood–lung age-directions 37° apart), and the intervention v\* is
 >   **anti-aligned with real blood aging (cos = −0.72)** — interventions move cells
@@ -251,10 +255,10 @@ weak aging-CpG enrichment (1.2×). Over 52 weeks it does not appear to move cell
 along the chronological-age trajectory, consistent with the literature's mixed findings on whether
 weight loss reverses epigenetic age versus changing metabolic CpGs.
 
-### 6e. Eight interventions + cell control: orthogonality is real, not cell mix
+### 6e. Nine interventions + cell control: orthogonality is real, not cell mix
 
-Over the ~30,200 CpGs shared by all eight interventions, the displacement vectors are **nearly
-mutually orthogonal** and the signed SVD spectrum is flat (ρ = λ₁/λ₂ = **1.30** raw). The decisive
+Over the ~30,200 CpGs shared by all nine interventions, the displacement vectors are **nearly
+mutually orthogonal** and the signed SVD spectrum is flat (ρ = λ₁/λ₂ = **1.31** raw, n=9). The decisive
 test — is this just intervention-induced leukocyte-composition shifts? — is answered by EpiDISH
 deconvolution and within-dataset residualisation on the estimated fractions:
 
@@ -293,7 +297,7 @@ Full tables and caveats in **[`results/FINDINGS.md`](results/FINDINGS.md)**.
 
 ## 7. Important caveats
 
-- **Eight interventions still do not define a robust internal axis.** ρ = 1.30 (raw) / 1.12
+- **Nine interventions still do not define a robust internal axis.** ρ = 1.31 (raw, n=9) / 1.12 (n=8
   (cell-adjusted) means the internal v* is not a validated aging direction; the *orthogonality*
   finding is the robust result. Per-intervention classification should be read against the
   **external** GTEx blood-aging axis (§6f), not the internal v* — the latter is anti-aligned with

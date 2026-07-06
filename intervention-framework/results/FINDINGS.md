@@ -1,13 +1,14 @@
-# Findings (current) — 8 interventions, cell-composition control, GTEx cross-tissue
+# Findings (current) — 9 interventions, cell-composition control, GTEx cross-tissue
 
-Supersedes earlier notes. Pipeline runs on **8 blood interventions** (balanced
-4 accelerating / 4 geroprotective), with a leukocyte-composition control and a
-GTEx multi-tissue cross-tissue test.
+Supersedes earlier notes. Pipeline runs on **9 blood interventions** (5 accelerating
+/ 4 geroprotective; three of the accelerators are independent smoking cohorts), with a
+leukocyte-composition control and a GTEx multi-tissue cross-tissue test.
 
 | Intervention | Accession | Sign | Design | Tissue |
 |--------------|-----------|------|--------|--------|
 | Smoking | GSE50660 | accel (+) | current vs never | whole blood |
 | Smoking (replication) | GSE53045 | accel (+) | smoker vs control | PBMC |
+| Smoking (RA cohort) | GSE42861 | accel (+) | current vs never | whole blood |
 | Chemo + radiotherapy | GSE140038 | accel (+) | post vs pre | whole blood |
 | Chronic stress / PTSD | GSE89218 | accel (+) | PTSD+ vs PTSD− | whole blood |
 | Bariatric weight loss | GSE272137 | gero (−) | paired w0/w52 | whole blood |
@@ -15,16 +16,20 @@ GTEx multi-tissue cross-tissue test.
 | Exercise (8 wk) | GSE328810 | gero (−) | paired Before/After | whole blood |
 | Exercise (children, 20 wk) | GSE193730 | gero (−) | paired Baseline/T1 | whole blood |
 
-Shared CpG support: 30,214 CpGs present in all eight displacement vectors.
+Shared CpG support: 30,214 CpGs present in all nine displacement vectors.
+(GSE42861's displacement is computed by streaming the 2.7 GB matrix — no beta h5 —
+so it enters 02/03/05 + geometry but not the cell-composition control; the RA disease
+status is an unadjusted confound.)
 
 ---
 
 ## 1. No dominant shared aging axis — robust to n and to cell adjustment
 
-Signed row-normalised SVD (raw displacements): ρ = λ₁/λ₂ = **1.30**
-(σ-weighted A in `03`: 1.37). After EpiDISH leukocyte adjustment: **ρ = 1.12**,
-even flatter. Growing 2 → 5 → 6 → 8 interventions never concentrates the signal
-onto one axis. The framework declines to certify a v\*.
+Signed row-normalised SVD (raw displacements): ρ = λ₁/λ₂ = **1.31** at n=9
+(σ-weighted A in `03`: 1.31; was 1.30 at n=8). After EpiDISH leukocyte adjustment
+(n=8, GSE42861 excluded): **ρ = 1.12**, even flatter. Growing 2 → 5 → 6 → 8 → 9
+interventions never concentrates the signal onto one axis. The framework declines to
+certify a v\*.
 
 ## 2. Near-orthogonality is real, not a cell-mix artifact
 
@@ -49,12 +54,28 @@ non-treatment stress exposure fails to align with smoking or chemo. The four
 "accelerators" occupy four different directions in methylation space. There is no
 common acceleration axis.
 
-## 4. Smoking reproduces across cohort and tissue (positive control)
+## 4. Smoking: agreement on the top CpG, weak agreement on the full vector
 
-The two independent smoking datasets (GSE50660 whole blood, GSE53045 PBMC) are the
-**most-aligned pair** both raw (78.6°) and cell-adjusted (82.8°), and project the
-same way onto v\* (cos −0.67, −0.60). The geometry reflects biology, not
-single-cohort noise. (Caveat: even same-exposure cohorts are only ~80° aligned.)
+Three independent smoking cohorts are now included: GSE50660 (whole blood),
+GSE53045 (PBMC), GSE42861 (whole blood, RA cohort). Two things:
+
+- **They agree on the headline biomarker but not the full displacement.** AHRR
+  `cg05575921` is the single **most-negative CpG in every smoking cohort** (e.g.
+  −0.22 in GSE42861, rank 1/425k) — hypomethylation in smokers, the canonical
+  signal. Yet over the full ~30k-CpG displacement the vectors are only weakly
+  aligned: GSE50660↔GSE53045 = **78.6°** (the most-aligned pair overall),
+  GSE50660↔GSE42861 = **86.8°**, GSE53045↔GSE42861 = **95.8°**.
+- **Confound rotates the vector.** GSE42861 (RA patients + controls; smoking
+  correlates with RA) is ~90° from the two cleaner smoking cohorts and is the only
+  smoking cohort that projects *positive* on v\* (cos +0.25 → nominally
+  "accelerating"), whereas the two clean cohorts project negative.
+
+Reading: agreement on a single strong biomarker (AHRR) does **not** imply agreement
+on the direction of the full methylation displacement — the extra signal beyond
+AHRR is cohort- and confound-specific. This mirrors the smoking-signature
+concordance result in the companion `methylation-biomarker-agreement` analysis
+(signatures agree for strong/current exposure, diverge for weak/heterogeneous
+cases) and is the biomarker-level version of this project's whole thesis.
 
 ## 5. Classification against the provisional v\* (3/8 match sign)
 

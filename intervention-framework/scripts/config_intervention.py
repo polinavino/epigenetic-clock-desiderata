@@ -190,6 +190,21 @@ INTERVENTION_DATASETS = {
         "source":  "processed_direct",
     },
 
+    # ── I_PLUS: smoking (whole blood, RA cohort) — 3rd smoking cohort ──────────
+    # GSE42861 — Liu et al. 2013 RA EWAS, PBL/whole blood, 450K, n=689
+    # (200 current / 193 never). Third independent smoking cohort. Displacement is
+    # computed by streaming (process_gse42861_stream.py) -> cached displacement
+    # parquet; no beta h5 (2.7 GB matrix too large for this machine), so it is used
+    # in 02/03/05 + geometry but not cell_composition. RA disease status is a
+    # confound (kept, not adjusted).
+    "GSE42861": {
+        "label":   "smoking_blood_ra",
+        "sign":    "plus",
+        "tissue":  "blood",
+        "design":  "cross_sectional",
+        "source":  "processed_direct",
+    },
+
     # ── I_MINUS: exercise in children — reproducibility control for GSE328810 ──
     # GSE193730 — 20-wk exercise, children w/ overweight/obesity, whole blood,
     # EPIC, 23 subjects x 2 timepoints. Exercise (E_) group paired Baseline/T1.
