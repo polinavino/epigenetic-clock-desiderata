@@ -1,0 +1,39 @@
+Loading displacement matrix A ...
+  A shape: (9, 5000) (9 intervention-context pairs x 5,000 CpGs)
+
+Running SVD ...
+  normalised 9 rows to unit length
+
+Singular value spectrum:
+  lambda_1: 1.4834
+  lambda_2: 1.1307
+  lambda_3: 1.0600
+  lambda_4: 0.9887
+  lambda_5: 0.9492
+  lambda_6: 0.9446
+  lambda_7: 0.8708
+  lambda_8: 0.7273
+  lambda_9: 0.5825
+
+  rho = lambda_1 / lambda_2 = 1.312
+  >> One-dimensionality NOT supported; aging signal is multi-dimensional
+  saved spectrum plot: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/intervention-framework/results/svd_spectrum.pdf
+  v* already oriented toward accelerating direction
+
+  v* saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/data/interventions/aging_direction_v_star.parquet
+  non-zero components: 5,000 / 5,000
+
+Curvature test (young: age < 40, old: age > 60)
+  GSE50660: insufficient age-stratified samples, skipping
+  GSE77716: no age column, skipping curvature test
+  GSE133588: no age column, skipping curvature test
+  GSE272137: no age column, skipping curvature test
+  GSE328810: no age column, skipping curvature test
+  GSE240184: no age column, skipping curvature test
+  GSE140038: no age column, skipping curvature test
+  GSE89218: no age column, skipping curvature test
+  GSE53045: no age column, skipping curvature test
+  GSE193730: no age column, skipping curvature test
+  no datasets with age metadata available for curvature test
+
+Done.

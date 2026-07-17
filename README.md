@@ -131,7 +131,7 @@ All clocks fail D3. Hannum is most confounded; GrimAge least.
 
 **Result 6 — GrimAge structural finding**
 
-GrimAge is a two-stage composite model: it first predicts protein biomarker levels (GDF15, B2M, cystatin C, etc.) from methylation using separate linear sub-models, then combines these predictions. This is structurally incomparable to the other clocks, which are single linear functions. Coefficient vector analysis confirms: Horvath–DunedinPACE cosine similarity = 0.000 (orthogonal); all pairwise cosine similarities = 0.03–0.11 (near-orthogonal). The clocks measure genuinely independent biological signals.
+GrimAge is a two-stage composite model: it first predicts protein biomarker levels (GDF15, B2M, cystatin C, etc.) from methylation using separate linear sub-models, then combines these predictions. This is structurally incomparable to the other clocks, which are single linear functions. Coefficient vector analysis confirms near-orthogonality. The off-diagonal cosine similarities range from −0.171 (PhenoAge–DunedinPACE) to 0.115 (Horvath–PhenoAge), with Horvath–DunedinPACE = 0.000 (verified from `data/cosine_similarity.parquet`). All |cosine| ≤ 0.17, so the clocks measure genuinely independent biological signals. (An earlier version of this section reported the range as "0.03–0.11", which omitted the negative PhenoAge–DunedinPACE value; the near-orthogonal conclusion is unchanged.)
 
 **Result 7 — Coherence**
 
@@ -195,17 +195,44 @@ All figures are saved to `paper/figures/`. All intermediate data to `data/`. Not
 .
 ├── README.md
 ├── requirements.txt
-├── scripts/
+├── scripts/                             # main methylation-clock pipeline (heavy)
 │   ├── config.py                        # all paths and parameters
 │   ├── principal_curve.py               # Hastie-Stuetzle implementation
 │   ├── 01_download_and_preprocess.py
 │   ├── 02_compute_weights_and_curve.py
 │   └── 03_compute_clocks_and_ranks.py
-├── data/                                # populated by scripts, not tracked
+├── data/                                # populated by scripts, not tracked (large)
+├── outputs/                             # tracked console outputs of the light analysis scripts
+├── intervention-framework/             # sub-project: geometric intervention classification
+│   ├── scripts/                         # its own pipeline + light analysis scripts
+│   └── results/                         # its figures
+├── eye_aging/                           # extension of the clock instance to retina (transcriptomic)
+│   ├── analysis/eye_clocks.py           # self-teeing to eye_aging/analysis/outputs/
+│   └── data/                            # rat retinal aging data (GSE314970) + senescence gene sets
 └── paper/
     ├── figures/                         # all output figures
     └── sections/                        # LaTeX sections (forthcoming)
 ```
+
+## Sub-projects and the `outputs/` convention
+
+- **`intervention-framework/`** is a distinct sub-project that classifies interventions geometrically
+  (geroprotective / age-accelerating / clock-gaming) against the aging trajectory. It has its own
+  desiderata and should not be conflated with the clock-comparison analyses above.
+- **`eye_aging/`** extends the clock instance to a new tissue and modality: a rat retinal bulk RNA-seq
+  aging series (GSE314970), on which several competing transcriptomic aging measures (SenMayo and Fridman
+  senescence signatures, an inflammaging proxy, and a fitted elastic-net clock) are compared with the same
+  framework. The fitted clock tracks age at Spearman 0.98 while the curated senescence signatures track it
+  weakly (down to 0.13), they split into a senescence/inflammaging family and a distinct clock direction,
+  and the consensus tracks age. It is a single-cohort, rat, single-sex extension, so it is qualitative.
+  See `eye_aging/README.md`.
+- **`outputs/` convention.** The light, self-contained analysis scripts tee their console output to a
+  tracked text file, so the reported numbers always have a stored source of truth. The repo-level
+  `outputs/` holds the retrofitted light `intervention-framework` analysis scripts
+  (`03_svd_and_aging_direction`, `04_fit_principal_curve`, `05_classify_interventions`,
+  `cell_composition_analysis`, `exploratory_shared_component`, `exploratory_smoking`); `eye_aging` keeps
+  its own `analysis/outputs/`. The heavy main pipeline (`scripts/01–03`, which downloads GEO data and runs
+  biolearn) is not retrofitted — its results are the derived parquet tables in `data/`.
 
 ---
 

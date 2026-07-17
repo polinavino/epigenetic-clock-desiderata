@@ -1,0 +1,48 @@
+=== Eye-aging (GSE314970 rat retina): 30454 genes x 85 samples ===
+ages (months): {6.0: np.int64(12), 9.0: np.int64(12), 12.0: np.int64(12), 18.0: np.int64(12), 21.0: np.int64(13), 24.0: np.int64(12), 27.0: np.int64(12)}
+
+signature gene coverage (matched/total): SenMayo 113/124, Fridman_up 74/77, Fridman_dn 12/13, Inflammatory 199/200
+fitted clock: out-of-fold predicted age vs true age Spearman = 0.979
+
+(families) Spearman among the 5 aging measures:
+                 SenMayo Fridman_u Fridman_d Inflammat     Clock
+  SenMayo        +1.00 +0.84 -0.37 +0.90 +0.48
+  Fridman_up     +0.84 +1.00 -0.59 +0.72 +0.15
+  Fridman_dn_neg -0.37 -0.59 +1.00 -0.21 +0.30
+  Inflammatory   +0.90 +0.72 -0.21 +1.00 +0.66
+  Clock          +0.48 +0.15 +0.30 +0.66 +1.00
+
+(anchor) each measure vs chronological age (Spearman):
+  SenMayo        +0.448
+  Fridman_up     +0.128
+  Fridman_dn_neg +0.302
+  Inflammatory   +0.616
+  Clock          +0.979
+  consensus (mean rank) vs age: +0.755
+  consensus vs age by tertile (mean age months): bottom 9.7 | middle 18.3 | top 22.7
+
+(near-tie) pairwise discordance among the 5 measures vs consensus separation:
+  overall discordance 0.802
+    |Δaxis| in [0.000,0.113]: discordance=0.990  (n=705)
+    |Δaxis| in [0.113,0.232]: discordance=0.922  (n=718)
+    |Δaxis| in [0.232,0.375]: discordance=0.862  (n=710)
+    |Δaxis| in [0.375,0.560]: discordance=0.706  (n=704)
+    |Δaxis| in [0.560,1.000]: discordance=0.538  (n=733)
+    linear-prob R^2: sep-only=0.1850, sep+midpos=0.1943; midpos coef=+0.1876
+
+(consensus poset) incomparable fraction = 0.802
+  Bubley-Dyer chains Spearman = 0.9407
+  Spearman(measure, canonical average-rank), and each measure vs age:
+    SenMayo        vs canonical +0.708
+    Fridman_up     vs canonical +0.494
+    Fridman_dn_neg vs canonical +0.280
+    Inflammatory   vs canonical +0.787
+    Clock          vs canonical +0.741
+  canonical average-rank vs age: +0.699
+
+wrote eye_scores.csv
+
+Honest reading: several transcriptomic aging measures on one tissue disagree in the expected
+near-tie pattern, and the consensus tracks true age. Single cohort (no cross-cohort reproducibility),
+rat, one sex, and the clock is fitted on these same samples (out-of-fold) — a qualitative extension
+of the clock instance to a new tissue and modality, not a standalone domain.

@@ -1,0 +1,27 @@
+Loading displacements ...
+  shared CpGs: 237,974
+
+  cosine(smoking, weightloss) = +0.1432 (81.8 deg)
+
+Decomposing into sum and difference directions ...
+
+Computing age trajectory direction ...
+  age direction over 156 CpGs
+
+--- Alignment with chronological-age trajectory ---
+  smoking      vs age: -0.3359 (70.4 deg)
+  weight loss  vs age: +0.0447 (87.4 deg)
+  SUM (shared) vs age: -0.2745 (74.1 deg)
+  DIFF         vs age: -0.3427 (70.0 deg)
+
+  Interpretation:
+  Component most aligned with age trajectory: difference (|cos| = 0.343)
+
+--- Aging CpG enrichment (200 known age CpGs) ---
+  smoking     : |weight| on aging CpGs / other = 2.54
+  weight loss : |weight| on aging CpGs / other = 1.20
+  sum         : |weight| on aging CpGs / other = 1.88
+  difference  : |weight| on aging CpGs / other = 1.97
+
+  saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/intervention-framework/results/shared_component_age_alignment.pdf
+  saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/data/interventions/shared_component_analysis.csv

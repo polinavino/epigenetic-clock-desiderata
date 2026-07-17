@@ -1,0 +1,66 @@
+Loading GSE50660 ...
+  shape: (464, 378617)
+
+Computing smoking displacement vector ...
+  cases: 22, controls: 179
+  displacement vector: 378,617 CpGs
+  mean |delta|: 0.0058
+  max |delta|:  0.2439
+
+--- Canonical smoking CpGs ---
+  cg05575921 (AHRR): delta = -0.2439  (top 100.0% by |delta|)
+  cg03636183 (F2RL3): delta = -0.1302  (top 100.0% by |delta|)
+  cg19859270 (GPR15): delta = -0.0360  (top 99.4% by |delta|)
+  cg23576855 (PRSS23): delta = -0.1882  (top 100.0% by |delta|)
+  cg01940273 (ALPPL2): delta = -0.1184  (top 100.0% by |delta|)
+  cg06126421 (C1orf114): delta = -0.1274  (top 100.0% by |delta|)
+  cg10399789 (ZMYND11): delta = -0.0165  (top 93.4% by |delta|)
+  cg25949550 (AHRR): delta = -0.0172  (top 94.0% by |delta|)
+  cg21566642 (ALPPL2): delta = -0.1638  (top 100.0% by |delta|)
+
+--- Top 20 CpGs by |delta| ---
+  cg05575921: ↓ -0.2439
+  cg25099095: ↑ +0.1939
+  cg23576855: ↓ -0.1882
+  cg19393008: ↑ +0.1858
+  cg11418303: ↓ -0.1776
+  cg27079096: ↑ +0.1756
+  cg17283620: ↓ -0.1649
+  cg16112880: ↓ -0.1641
+  cg21566642: ↓ -0.1638
+  cg01462799: ↓ -0.1622
+  cg05237503: ↓ -0.1601
+  cg05455372: ↓ -0.1580
+  cg18662228: ↓ -0.1570
+  cg01463139: ↓ -0.1544
+  cg10920758: ↑ +0.1496
+  cg18339359: ↓ -0.1473
+  cg05279330: ↓ -0.1459
+  cg03221390: ↑ +0.1434
+  cg00944631: ↑ +0.1415
+  cg19697575: ↓ -0.1399
+
+--- Alignment with aging trajectory ---
+  aging trajectory CpGs: 200
+  shared with displacement vector: 196
+  shared with principal curve: 196
+
+  cosine similarity (smoking vs aging direction): +0.1755
+  angle between directions: 79.9 degrees
+  tangential fraction: 0.176
+  orthogonal fraction: 0.984
+
+  >> Smoking has MODERATE alignment with aging direction
+
+  saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/intervention-framework/results/smoking_displacement_distribution.pdf
+  saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/intervention-framework/results/smoking_vs_aging_trajectory.pdf
+
+  displacement vector saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/data/interventions/GSE50660_displacement_exploratory.parquet
+
+=== Summary ===
+  n cases (smokers):   22
+  n controls (never):  179
+  CpGs analysed:       378,617
+  mean |delta|:        0.0058
+  angle w/ aging:      79.9°
+  tangential fraction: 0.176

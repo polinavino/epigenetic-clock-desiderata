@@ -10,6 +10,15 @@ Questions:
   3. Does smoking push methylation in the aging direction or orthogonally?
 """
 
+
+# --- persist console output to a tracked file (outputs/ convention, matches the meta-repo) ---
+import sys as _sys, os as _os
+_os.makedirs("/Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/outputs", exist_ok=True)
+class _Tee:
+    def __init__(self, p): self._f = open(p, "w"); self._o = _sys.stdout
+    def write(self, s): self._o.write(s); self._f.write(s)
+    def flush(self): self._o.flush(); self._f.flush()
+_sys.stdout = _Tee("/Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/outputs/exploratory_smoking.txt")
 import sys
 import numpy as np
 import pandas as pd

@@ -1,0 +1,80 @@
+Loading aging direction v* ...
+  v* over 5,000 CpGs
+
+Loading displacement metadata ...
+
+  GSE50660 (smoking_blood, expected plus):
+    <d, v*>          = -0.7402
+    ||d||            = 1.1541
+    tangential frac  = 0.641
+    classification   = geroprotective
+    expected age_accelerating: MISMATCH
+
+  GSE272137 (bariatric_weight_loss, expected minus):
+    <d, v*>          = -1.0206
+    ||d||            = 2.1345
+    tangential frac  = 0.478
+    classification   = geroprotective
+    expected geroprotective: OK
+
+  GSE328810 (exercise_blood, expected minus):
+    <d, v*>          = -0.0336
+    ||d||            = 1.6395
+    tangential frac  = 0.021
+    classification   = clock_gaming
+    expected geroprotective: MISMATCH
+
+  GSE240184 (behavioural_weight_loss, expected minus):
+    <d, v*>          = -0.2117
+    ||d||            = 0.3392
+    tangential frac  = 0.624
+    classification   = geroprotective
+    expected geroprotective: OK
+
+  GSE140038 (chemo_radiotherapy_blood, expected plus):
+    <d, v*>          = +1.0687
+    ||d||            = 1.4731
+    tangential frac  = 0.725
+    classification   = age_accelerating
+    expected age_accelerating: OK
+
+  GSE89218 (ptsd_stress_blood, expected plus):
+    <d, v*>          = -0.0914
+    ||d||            = 0.6857
+    tangential frac  = 0.133
+    classification   = clock_gaming
+    expected age_accelerating: MISMATCH
+
+  GSE53045 (smoking_pbmc, expected plus):
+    <d, v*>          = -1.3102
+    ||d||            = 2.2201
+    tangential frac  = 0.590
+    classification   = geroprotective
+    expected age_accelerating: MISMATCH
+
+  GSE42861 (smoking_blood_ra, expected plus):
+    <d, v*>          = +0.1366
+    ||d||            = 0.5429
+    tangential frac  = 0.252
+    classification   = age_accelerating
+    expected age_accelerating: OK
+
+  GSE193730 (exercise_children, expected minus):
+    <d, v*>          = +0.2929
+    ||d||            = 1.0923
+    tangential frac  = 0.268
+    classification   = age_accelerating
+    expected geroprotective: MISMATCH
+
+Saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/data/interventions/intervention_classification.csv
+                   label  projection  tangential_fraction   classification  matches_expected
+           smoking_blood   -0.740218             0.641361   geroprotective             False
+   bariatric_weight_loss   -1.020614             0.478155   geroprotective              True
+          exercise_blood   -0.033639             0.020518     clock_gaming             False
+ behavioural_weight_loss   -0.211680             0.623979   geroprotective              True
+chemo_radiotherapy_blood    1.068700             0.725475 age_accelerating              True
+       ptsd_stress_blood   -0.091393             0.133286     clock_gaming             False
+            smoking_pbmc   -1.310152             0.590145   geroprotective             False
+        smoking_blood_ra    0.136626             0.251653 age_accelerating              True
+       exercise_children    0.292926             0.268174 age_accelerating             False
+  saved: /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/intervention-framework/results/classification_figure.pdf

@@ -33,3 +33,9 @@ venv/
 
 # VSCode
 .vscode/
+
+# eye_aging instance: the data/ rule above also hides eye_aging/data, so re-include it and keep the
+# small derived/source tables (metadata, eye_scores, gene sets, symbol map) plus the 5.9 MB counts
+# parquet so eye_clocks.py reruns from a clean clone. Ignore only the redundant 13 MB counts CSV.
+!eye_aging/data/
+eye_aging/data/GSE314970_rat_retina_counts.csv

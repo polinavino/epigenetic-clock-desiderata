@@ -1,0 +1,68 @@
+
+GSE50660 (smoking_blood, cross_sectional, ref CpGs used=321/333)
+  mean leukocyte fractions: B=0.046, NK=0.078, CD4T=0.187, CD8T=0.036, Mono=0.088, Neutro=0.563, Eosino=0.000
+  intervention-induced fraction change (grp1-grp0): B=+0.004, NK=-0.004, CD4T=+0.031, CD8T=-0.004, Mono=+0.002, Neutro=-0.030, Eosino=+0.001
+  |raw displacement|=0.00575  |cell-adjusted|=0.00505  cos(raw,adj)=0.933
+
+GSE272137 (bariatric_weight_loss, longitudinal, ref CpGs used=279/333)
+  mean leukocyte fractions: B=0.143, NK=0.116, CD4T=0.340, CD8T=0.000, Mono=0.269, Neutro=0.023, Eosino=0.109
+  intervention-induced fraction change (grp1-grp0): B=+0.004, NK=+0.004, CD4T=+0.013, CD8T=+0.000, Mono=+0.006, Neutro=-0.036, Eosino=+0.011
+  |raw displacement|=0.01242  |cell-adjusted|=0.00754  cos(raw,adj)=0.572
+
+GSE328810 (exercise_blood, longitudinal, ref CpGs used=46/333)
+  mean leukocyte fractions: B=0.000, NK=0.039, CD4T=0.132, CD8T=0.074, Mono=0.061, Neutro=0.695, Eosino=0.000
+  intervention-induced fraction change (grp1-grp0): B=+0.000, NK=+0.011, CD4T=+0.001, CD8T=-0.009, Mono=+0.000, Neutro=-0.004, Eosino=+0.000
+  |raw displacement|=0.01012  |cell-adjusted|=0.01042  cos(raw,adj)=0.967
+
+GSE240184 (behavioural_weight_loss, longitudinal, ref CpGs used=292/333)
+  mean leukocyte fractions: B=0.089, NK=0.102, CD4T=0.254, CD8T=0.027, Mono=0.067, Neutro=0.461, Eosino=0.001
+  intervention-induced fraction change (grp1-grp0): B=+0.001, NK=+0.000, CD4T=+0.001, CD8T=+0.005, Mono=+0.003, Neutro=-0.010, Eosino=+0.000
+  |raw displacement|=0.00222  |cell-adjusted|=0.00228  cos(raw,adj)=0.908
+
+GSE140038 (chemo_radiotherapy_blood, cross_sectional, ref CpGs used=305/333)
+  mean leukocyte fractions: B=0.045, NK=0.089, CD4T=0.158, CD8T=0.047, Mono=0.107, Neutro=0.551, Eosino=0.004
+  intervention-induced fraction change (grp1-grp0): B=-0.014, NK=-0.010, CD4T=-0.032, CD8T=-0.011, Mono=+0.021, Neutro=+0.044, Eosino=+0.002
+  |raw displacement|=0.00592  |cell-adjusted|=0.00495  cos(raw,adj)=0.359
+
+GSE89218 (ptsd_stress_blood, cross_sectional, ref CpGs used=256/333)
+  mean leukocyte fractions: B=0.009, NK=0.001, CD4T=0.047, CD8T=0.004, Mono=0.036, Neutro=0.903, Eosino=0.000
+  intervention-induced fraction change (grp1-grp0): B=+0.000, NK=+0.000, CD4T=-0.001, CD8T=+0.002, Mono=-0.000, Neutro=-0.002, Eosino=+0.000
+  |raw displacement|=0.00420  |cell-adjusted|=0.00414  cos(raw,adj)=0.986
+
+GSE53045 (smoking_pbmc, cross_sectional, ref CpGs used=322/333)
+  mean leukocyte fractions: B=0.163, NK=0.081, CD4T=0.339, CD8T=0.095, Mono=0.147, Neutro=0.174, Eosino=0.001
+  intervention-induced fraction change (grp1-grp0): B=-0.001, NK=+0.014, CD4T=-0.016, CD8T=+0.033, Mono=-0.003, Neutro=-0.028, Eosino=+0.001
+  |raw displacement|=0.01223  |cell-adjusted|=0.00915  cos(raw,adj)=0.926
+
+GSE193730 (exercise_children, longitudinal, ref CpGs used=297/333)
+  mean leukocyte fractions: B=0.035, NK=0.039, CD4T=0.127, CD8T=0.152, Mono=0.087, Neutro=0.556, Eosino=0.005
+  intervention-induced fraction change (grp1-grp0): B=+0.006, NK=-0.010, CD4T=+0.012, CD8T=-0.022, Mono=+0.002, Neutro=+0.011, Eosino=+0.001
+  |raw displacement|=0.00724  |cell-adjusted|=0.00755  cos(raw,adj)=0.901
+
+===== RAW pairwise angles (deg), shared CpGs=30,214 =====
+              smoking_b  bariatric  exercise_  behaviour  chemo_rad  ptsd_stre  smoking_p  exercise_
+smoking_blo         0.0       79.3       87.2       82.4      114.1       87.0       78.6       93.6
+bariatric_w        79.3        0.0       86.1       87.0       97.9       91.6       77.0       97.0
+exercise_bl        87.2       86.1        0.0       91.4       88.4       91.1       89.0       93.0
+behavioural        82.4       87.0       91.4        0.1      108.6       90.2       79.3       94.7
+chemo_radio       114.1       97.9       88.4      108.6        0.0       90.6       95.2       79.1
+ptsd_stress        87.0       91.6       91.1       90.2       90.6        0.0       88.7       88.5
+smoking_pbm        78.6       77.0       89.0       79.3       95.2       88.7        0.0       89.5
+exercise_ch        93.6       97.0       93.0       94.7       79.1       88.5       89.5        0.0
+  signed-SVD spectrum: [1.3600000143051147, 1.0499999523162842, 1.034000039100647, 0.996999979019165, 0.9539999961853027, 0.9340000152587891, 0.8360000252723694, 0.7070000171661377]
+  rho = lambda1/lambda2 = 1.296
+
+===== CELL-ADJUSTED pairwise angles (deg), shared CpGs=30,214 =====
+              smoking_b  bariatric  exercise_  behaviour  chemo_rad  ptsd_stre  smoking_p  exercise_
+smoking_blo         0.0       91.2       87.2       91.0       87.1       88.2       82.8       84.8
+bariatric_w        91.2        0.0       84.7       90.5       80.0       91.2       97.1       97.3
+exercise_bl        87.2       84.7        0.0       92.5       80.9       92.8       86.3       90.3
+behavioural        91.0       90.5       92.5        0.0       99.1       92.3       80.5       88.0
+chemo_radio        87.1       80.0       80.9       99.1        0.0       91.1       97.7       94.1
+ptsd_stress        88.2       91.2       92.8       92.3       91.1        0.0       90.7       88.0
+smoking_pbm        82.8       97.1       86.3       80.5       97.7       90.7        0.0       75.2
+exercise_ch        84.8       97.3       90.3       88.0       94.1       88.0       75.2        0.0
+  signed-SVD spectrum: [1.243, 1.111, 1.043, 0.978, 0.949, 0.916, 0.869, 0.825]
+  rho = lambda1/lambda2 = 1.118
+
+Saved fractions + summary to /Users/polina/Documents/BioInfStuff/epigenetic-clock-desiderata/data/interventions
